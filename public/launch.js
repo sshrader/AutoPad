@@ -285,6 +285,26 @@
     document.addEventListener('animalpad:freeconfig', load);
   })();
 
+  // The Copy button on a coin address strip.
+  document.addEventListener('click', async e => {
+    const b = e.target.closest && e.target.closest('.ca-copy');
+    if (!b) return;
+    const text = b.dataset.ca || '';
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (err) {
+      try {
+        const t = document.createElement('textarea');
+        t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+        document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove();
+      } catch (e2) { ok = false; }
+    }
+    const was = b.dataset.label || b.textContent;
+    b.dataset.label = was;
+    b.textContent = ok ? 'Copied ✓' : 'Press Ctrl+C';
+    if (!ok) { const c = b.parentNode.querySelector('.cavalue'); if (c) { const r = document.createRange(); r.selectNodeContents(c); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } }
+    setTimeout(() => { b.textContent = was; }, 1800);
+  });
+
   document.addEventListener('animalpad:reset', () => { staged = null; pending = null; $('dl-result').hidden = true; say(''); render(); });
 
   document.addEventListener('animalpad:wallet', e => { wallet = (e.detail && e.detail.address) || null; render(); });
