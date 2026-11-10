@@ -592,7 +592,7 @@ function createApp(opts) {
       return;
     }
 
-    const POSTS = { '/api/launch/prepare': 'prepare', '/api/launch/step': 'step', '/api/launch/buy': 'buy', '/api/launch/claim': 'distribute' };
+    const POSTS = { '/api/launch/prepare': 'prepare', '/api/launch/step': 'step', '/api/launch/buy': 'buy', '/api/launch/sell': 'sell', '/api/launch/claim': 'distribute' };
     if (req.method === 'POST' && Object.prototype.hasOwnProperty.call(POSTS, pathname)) {
       const action = POSTS[pathname];
       const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store', Connection: 'close' });

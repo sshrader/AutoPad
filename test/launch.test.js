@@ -595,3 +595,25 @@ test('token metadata names the platform, not a past brand', () => {
   assert.equal(metadataFor('Salt Lantern', 'lntrn', null, '', 'mainnet-beta').description, 'A coin launched on AutoPay.');
   assert.equal(metadataFor('Salt Lantern', 'lntrn', null, '', 'devnet', 'My Pad').description, 'A devnet test token launched on My Pad.');
 });
+
+test('sell (devnet only) prepares an unsigned sale of part or all of the wallet\'s tokens', async () => {
+  const { launcher, st } = make();
+  const mint = key();
+  const body = over => Object.assign({ pool: mint, seller: CREATOR }, over);
+  assert.equal((await launcher.sell(body(), ctx)).status, 404);
+  st.putCurve(mint, { creator: key() });
+  assert.equal((await launcher.sell(body(), ctx)).body.error, 'nothing_to_sell');
+  st.tokens.set(st.B.ata(CREATOR, mint, pump.TOKEN_2022).toBase58(), '2000000000');
+  const all = await launcher.sell(body(), ctx);
+  assert.equal(all.status, 200);
+  const ix = tx(all.body.transaction).instructions.filter(i => i.program === pump.PUMP)[0];
+  const d = Buffer.from(ix.data, 'hex');
+  assert.equal(d.readBigUInt64LE(8), 2000000000n);
+  assert.ok(d.readBigUInt64LE(16) > 0n);
+  const half = await launcher.sell(body({ percent: 50 }), ctx);
+  assert.equal(Buffer.from(tx(half.body.transaction).instructions.filter(i => i.program === pump.PUMP)[0].data, 'hex').readBigUInt64LE(8), 1000000000n);
+  assert.equal((await launcher.sell(body({ percent: 0 }), ctx)).body.error, 'bad_amount');
+  assert.equal((await launcher.sell(body({ seller: 'x' }), ctx)).body.error, 'bad_seller');
+  st.putCurve(mint, { creator: key(), complete: true });
+  assert.equal((await launcher.sell(body(), ctx)).body.error, 'migrated');
+});

@@ -539,6 +539,41 @@ function createLauncher(opts) {
     }
   }
 
+  // Devnet only: sell some or all of a wallet's tokens back to the curve, so test SOL can be recovered.
+  async function sell(input, ctx) {
+    if (!enabled) return { status: 503, body: { error: 'launch_unavailable' } };
+    if (isMain) return { status: 403, body: { error: 'sell_devnet_only' } };
+    if (!allow((ctx && ctx.ip) || 'unknown')) return { status: 429, body: { error: 'rate_limited' } };
+    const b = input && typeof input === 'object' ? input : {};
+    if (typeof b.pool !== 'string' || !B58_RE.test(b.pool)) return { status: 400, body: { error: 'bad_pool' } };
+    if (typeof b.seller !== 'string' || !B58_RE.test(b.seller)) return { status: 400, body: { error: 'bad_seller' } };
+    const pct = b.percent === undefined ? 100 : Number(b.percent);
+    if (!Number.isInteger(pct) || pct < 1 || pct > 100) return { status: 400, body: { error: 'bad_amount' } };
+    try {
+      const c = await chain();
+      const curve = await readCurve(c, b.pool);
+      if (!curve) return { status: 404, body: { error: 'pool_not_found' } };
+      if (curve.complete) return { status: 409, body: { error: 'migrated' } };
+      if (await quoteOfCurve(c, curve)) return { status: 409, body: { error: 'pair_trade_not_ready' } };
+      const sellerPk = new c.web3.PublicKey(b.seller);
+      let held = 0n;
+      try {
+        const bal = await c.connection.getTokenAccountBalance(c.B.ata(sellerPk, b.pool, pump.TOKEN_2022));
+        held = BigInt(bal && bal.value ? bal.value.amount : 0);
+      } catch (e) { held = 0n; }
+      const amount = (held * BigInt(pct)) / 100n;
+      if (amount <= 0n) return { status: 409, body: { error: 'nothing_to_sell' } };
+      const glob = await readGlobal(c);
+      const minOut = pump.minLamportsForSell(curve, amount, 1500, pump.feeGuessBps(glob));
+      const recipients = Array.isArray(glob.buyback_fee_recipients) && glob.buyback_fee_recipients.length ? glob.buyback_fee_recipients : pump.BUYBACK_RECIPIENTS;
+      const ix = c.B.sell({ user: sellerPk, mint: b.pool, amount, minLamportsOut: minOut, buybackRecipient: recipients[0] });
+      return { status: 200, body: { transaction: await toTx(c, budget(c, CU.buy).concat([ix]), sellerPk), tokens: amount.toString(), minSol: Number(minOut) / 1e9, cluster } };
+    } catch (err) {
+      logger.error('Launch sell failed: ' + (err && err.stack ? err.stack : 'unknown error'));
+      return { status: 502, body: { error: 'prepare_failed' } };
+    }
+  }
+
   // Creator fees waiting for a coin: the part still on the curve plus what has been swept into the fee vault.
   async function pending(c, mint, curve) {
     const quote = await quoteOfCurve(c, curve);
@@ -803,7 +838,7 @@ function createLauncher(opts) {
     }
   }
 
-  return { info, lookupAddresses, holderCount, airdropInfo, airdropTransactions, approval, prepare, verifyBoost, step, status, pool, inspect, buy, fees, distribute, partnerFees, activity, pairs, pairPrices };
+  return { info, lookupAddresses, holderCount, airdropInfo, airdropTransactions, approval, prepare, verifyBoost, step, status, pool, inspect, buy, sell, fees, distribute, partnerFees, activity, pairs, pairPrices };
 }
 
 // Metadata for the token, read by wallets and explorers. Built from the link and the stored animal, so the

@@ -36,6 +36,8 @@
     pair_trade_not_ready: 'Buying coins paired with another token is not switched on yet.',
     not_creator: 'Only the wallet that launched this token can claim its creator fees. Switch Phantom to that wallet.',
     nothing_to_claim: 'There are no creator fees to claim yet.',
+    nothing_to_sell: 'Your wallet holds none of this coin.',
+    sell_devnet_only: 'Selling here is only on the test network.',
     launch_unavailable: 'Trading is not switched on for this site.'
   };
 
@@ -63,6 +65,7 @@
     showUsd();
     $('t-amt').setAttribute('aria-label', pool.paired ? 'Amount in the pair token' : 'Amount in SOL');
     $('t-buy').disabled = busy || pool.curveFull;
+    if ($('t-sell')) { $('t-sell').disabled = busy || pool.migrated || pool.paired; $('t-sell-half').disabled = $('t-sell').disabled; }
   }
 
   async function load(address) {
@@ -188,9 +191,41 @@
     busy = false; renderInfo();
   }
 
+  // Devnet only: sell part or all of what the connected wallet holds, to get test SOL back.
+  async function sell(percent) {
+    if (!pool || busy) return;
+    fail('');
+    busy = true; renderInfo();
+    try {
+      say('Connecting your wallet…');
+      const seller = W.address || await W.connect();
+      say('Preparing the sale…');
+      const res = await fetch('/api/launch/sell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pool: pool.address, seller: seller, percent: percent }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || typeof data.transaction !== 'string') {
+        say('', false); fail(WHY[data && data.error] || 'Could not prepare the sale. Try again.');
+        busy = false; renderInfo(); return;
+      }
+      say('Approve the sale in your wallet…');
+      const signature = await W.signAndSend(data.transaction);
+      say('Sent. Waiting for the network to confirm…');
+      const state = await W.confirm(signature);
+      if (state === 'confirmed') { await load(pool.address); say('Sold ✓ ' + (percent === 100 ? 'All' : percent + '%') + ' of your tokens went back to the curve. Your test SOL is in your wallet.'); }
+      else if (state === 'failed') { say('', false); fail('The sale failed on-chain. Reload the coin and try again.'); }
+      else say('Not confirmed yet. Reload the coin in a minute to see the result.', true);
+    } catch (err) {
+      const m = err && err.message ? String(err.message) : '';
+      if (err && err.code === 'no_wallet') { say('', false); fail(W.NO_WALLET); }
+      else if (/reject|denied|cancel/i.test(m)) say('You declined the transaction.', true);
+      else { say('', false); fail('The sale did not go through. Check that your wallet is on Devnet.'); }
+    }
+    busy = false; renderInfo();
+  }
+
   $('t-load').addEventListener('click', () => { load($('t-pool').value); });
   $('t-pool').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); load($('t-pool').value); } });
   $('t-buy').addEventListener('click', buy);
+  if ($('t-sell')) { $('t-sell').addEventListener('click', () => sell(100)); $('t-sell-half').addEventListener('click', () => sell(50)); }
   $('t-claim').addEventListener('click', claim);
 
   // A launch made on this page opens the card with its pool loaded.
