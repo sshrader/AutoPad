@@ -264,7 +264,12 @@ function createPadStore(opts) {
   const buyBlocked = (slug, wallet) => { const e = entries.find(x => x.slug === slug); return Boolean(e && wallet !== e.ownerWallet && settingsOf(e).access.deny.includes(wallet)); };
   // The site's one built-in launchpad: made once at start from the server's own settings, not from a signed form.
   function seed(spec, logoBuf) {
-    if (entries.some(e => e.slug === spec.slug)) return false;
+    const have = entries.find(e => e.slug === spec.slug);
+    if (have) {
+      // The site's own pad keeps its picture in step with the file shipped with the code, so a new logo shows after a deploy.
+      if (have.home) { const cur = logo(spec.slug); if (!cur || !cur.buf.equals(logoBuf)) saveImage(spec.slug, 'png', logoBuf, ''); }
+      return false;
+    }
     const entry = { slug: spec.slug, name: spec.name, tagline: spec.tagline, accent: spec.accent, corners: spec.corners || 'round', ownerWallet: spec.ownerWallet, payoutWallet: spec.ownerWallet, ownerPct: 0, links: {}, settings: normalizeSettings({}).settings, logoExt: 'png', home: true, createdAt: now() };
     if (!saveImage(spec.slug, 'png', logoBuf, '')) return false;
     entries.push(entry); save();
