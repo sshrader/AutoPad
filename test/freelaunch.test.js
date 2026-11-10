@@ -109,3 +109,18 @@ test('the website route launches with a code, records the coin, and the config s
     assert.equal(launches.size(), 1);
   } finally { srv.closeAllConnections(); await new Promise(r => srv.close(r)); }
 });
+
+test('the newest code is public until it is used, then reads as used', async () => {
+  const s = setup();
+  assert.deepEqual(s.fl.current(), { state: 'none' });
+  const code = s.ask().body.code;
+  assert.equal(s.fl.current().code, code);
+  assert.equal(s.fl.current().state, 'ready');
+  await s.fl.launch({ code, name: 'a', symbol: 'A' }, {});
+  const after = s.fl.current();
+  assert.equal(after.state, 'used');
+  assert.equal(after.code, undefined);
+  s.tick(1000);
+  const next = s.ask().body.code;
+  assert.equal(s.fl.current().code, next);
+});

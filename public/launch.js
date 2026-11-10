@@ -231,8 +231,8 @@
       clearTimeout(timer);
       if (!code || box.hidden) { $('of-state').hidden = true; return; }
       try {
-        const r = await fetch('/api/launch/free?code=' + encodeURIComponent(code)).then(x => x.json());
-        const st = r && r.state ? r.state : 'unknown';
+        const r = await fetch('/api/launch/free').then(x => x.json());
+        const st = r && r.state === 'none' ? 'unknown' : (r && r.code && r.code !== code ? 'unknown' : (r && r.state) || 'unknown');
         $('of-state').hidden = false; $('of-state').textContent = LABEL[st] || st;
         $('of-code').style.textDecoration = st === 'ready' || st === 'working' ? '' : 'line-through';
         if (st === 'ready' || st === 'working') timer = setTimeout(poll, 8000);
@@ -255,6 +255,34 @@
     addr = (W && W.address) || '';
     document.addEventListener('animalpad:wallet', e => { addr = (e.detail && e.detail.address) || ''; show(); poll(); });
     document.addEventListener('animalpad:freeconfig', e => { admins = (e.detail && e.detail.admins) || []; show(); poll(); });
+  })();
+
+  // Everyone sees the current free launch code. One person uses it and gets a free launch, then it shows as used.
+  (function () {
+    const box = $('free-banner');
+    if (!box) return;
+    let timer = null;
+    async function load() {
+      clearTimeout(timer);
+      if (!freeOn) return;
+      try {
+        const r = await fetch('/api/launch/free').then(x => x.json());
+        const live = r && (r.state === 'ready' || r.state === 'working');
+        box.hidden = !r || r.state === 'none';
+        $('fb-code').hidden = !live; $('fb-use').hidden = !live;
+        if (live) {
+          $('fb-code').textContent = r.code;
+          $('fb-text').textContent = r.state === 'working' ? 'Someone is using this code right now. If it fails, it opens up again.' : 'One person who uses this code gets a free launch on devnet, with no wallet. Fill in your coin, then enter the code (or press Use this code).';
+        } else $('fb-text').textContent = 'The last free launch code has been used or has expired. Check back for the next one.';
+        timer = setTimeout(load, live ? 6000 : 20000);
+      } catch (e) { timer = setTimeout(load, 20000); }
+    }
+    $('fb-use').addEventListener('click', () => {
+      $('fl-code').value = $('fb-code').textContent;
+      if (staged) $('free-opt').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else { const st = $('start'); if (st) st.scrollIntoView({ behavior: 'smooth' }); }
+    });
+    document.addEventListener('animalpad:freeconfig', load);
   })();
 
   document.addEventListener('animalpad:reset', () => { staged = null; pending = null; $('dl-result').hidden = true; say(''); render(); });

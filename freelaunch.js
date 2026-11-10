@@ -96,7 +96,16 @@ function createFreeLaunch(opts) {
     return e.busy ? 'working' : 'ready';
   }
 
-  return { issue, launch, valid, status, admins, messageFor };
+  // The newest code is shown to every visitor: one person who uses it gets the free launch, then it reads as used.
+  function current() {
+    let key = '';
+    for (const k of Object.keys(codes)) if (!key || codes[k].at > codes[key].at) key = k;
+    if (!key) return { state: 'none' };
+    const state = status(key);
+    return state === 'ready' || state === 'working' ? { state, code: pretty(key), expiresAt: codes[key].at + ttlMs } : { state, usedAt: codes[key].usedAt || 0 };
+  }
+
+  return { issue, launch, valid, status, current, admins, messageFor };
 }
 
 module.exports = { createFreeLaunch, messageFor };
