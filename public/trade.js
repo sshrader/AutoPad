@@ -1,4 +1,4 @@
-/* Trade card: look up a HatchPad launch by its pool address, see how full its curve is, and buy
+/* Trade card: look up a AutoPay launch by its pool address, see how full its curve is, and buy
    with SOL. The server prepares the swap, your wallet signs it. Devnet only. */
 (function () {
   'use strict';

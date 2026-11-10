@@ -124,7 +124,7 @@
     on.style.setProperty('--pc', /^#[0-9a-f]{6}$/i.test(c.padAccent) ? c.padAccent : '#ff8f3d');
     on.href = c.pad ? '/p/' + encodeURIComponent(c.pad) : '/';
     on.appendChild(document.createTextNode('on '));
-    const pn = document.createElement('b'); pn.textContent = c.padName || (window.PAD && window.PAD.platform) || 'BuildAPad'; on.appendChild(pn);
+    const pn = document.createElement('b'); pn.textContent = c.padName || (window.PAD && window.PAD.platform) || 'AutoPay'; on.appendChild(pn);
     li.appendChild(rank); li.appendChild(a); li.appendChild(nums); li.appendChild(on);
     return li;
   }

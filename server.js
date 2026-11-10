@@ -869,7 +869,7 @@ function createApp(opts) {
     if (pathname === '/meta.json') {
       const id = url.searchParams.get('i');
       const rec = id && ID_RE.test(id) ? art.record(id) : null;
-      const meta = metadataFor(url.searchParams.get('n'), url.searchParams.get('s'), rec, baseUrlFor(req), launcher && launcher.info ? launcher.info().cluster : 'devnet');
+      const meta = metadataFor(url.searchParams.get('n'), url.searchParams.get('s'), rec, baseUrlFor(req), launcher && launcher.info ? launcher.info().cluster : 'devnet', pad.name);
       if (!meta) return send(res, 400, JSON.stringify({ error: 'bad_metadata' }), JSON_TYPE);
       return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(meta), Object.assign({}, JSON_TYPE, { 'Cache-Control': 'public, max-age=3600' }));
     }

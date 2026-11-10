@@ -1,4 +1,4 @@
-// Makes the shared address lookup table that lets HatchPad create a coin and make the creator's first buy in ONE
+// Makes the shared address lookup table that lets AutoPay create a coin and make the creator's first buy in ONE
 // transaction. Run it once per network. It costs about 0.01 SOL of rent, paid from the payer file, and the table
 // is FROZEN at the end so nobody (including you) can change it afterwards. The server refuses a table that is not frozen.
 //

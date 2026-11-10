@@ -1,4 +1,4 @@
-/* BuildAPad design system. Dark only. Graphite surfaces, one warm accent, a faint blueprint grid.
+/* AutoPay design system (from BuildAPad). Dark only. Graphite surfaces, one warm accent, a faint blueprint grid.
    A built launchpad swaps --accent, --on-accent and --r from its own settings; everything else stays. */
 :root {
   --ground: #0a0b0e; --paper: #11131a; --soft: #171a23; --raise: #1d212c;

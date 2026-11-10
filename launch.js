@@ -3,7 +3,7 @@
 // Launch flow on the pump.fun protocol, server side. The server builds UNSIGNED transactions for the
 // creator's wallet to sign. It holds no keys: the only secret it generates is the new coin's mint keypair,
 // which signs once here and is then discarded. A launch is up to three transactions, each built once the
-// last one has landed: 1) create the coin, 2) split its creator fees between the creator and HatchPad,
+// last one has landed: 1) create the coin, 2) split its creator fees between the creator and AutoPay,
 // 3) the creator's optional first buy. Mainnet is refused until MAINNET_ENABLED=yes.
 //
 // web3.js is loaded only when someone launches, so a problem with it can never stop the website from starting.
@@ -205,7 +205,7 @@ function createLauncher(opts) {
       artId = typeof b.art === 'string' && ART_ID_RE.test(b.art) ? b.art : '';
       if (!artId || !(ctx && typeof ctx.hasArt === 'function' && ctx.hasArt(artId))) return { status: 400, body: { error: 'bad_art' } };
     }
-    // The founder picture (the HatchPad logo) can only be launched by the founder wallet, so nobody else can launch a coin that looks like the brand.
+    // The founder picture (the AutoPay logo) can only be launched by the founder wallet, so nobody else can launch a coin that looks like the brand.
     if (artId && ctx && ctx.founder && artId === ctx.founder.id && b.creator !== ctx.founder.wallet) return { status: 403, body: { error: 'founder_only' } };
     const firstBuySol = parseBuy(b.firstBuySol);
     if (firstBuySol === null) return { status: 400, body: { error: 'bad_amount' } };
@@ -779,7 +779,7 @@ function createLauncher(opts) {
     }
   }
 
-  // What the platform has earned and not yet been paid, per coin. `mints` is the list of HatchPad launches.
+  // What the platform has earned and not yet been paid, per coin. `mints` is the list of AutoPay launches.
   async function partnerFees(ctx) {
     if (!enabled) return { status: 503, body: { error: 'launch_unavailable' } };
     if (!allowRead((ctx && ctx.ip) || 'unknown')) return { status: 429, body: { error: 'rate_limited' } };
@@ -808,11 +808,11 @@ function createLauncher(opts) {
 
 // Metadata for the token, read by wallets and explorers. Built from the link and the stored animal, so the
 // page never has to host anything else. `art` is the stored record for the picture, if there is one.
-function metadataFor(name, symbol, art, base, cluster) {
+function metadataFor(name, symbol, art, base, cluster, platform) {
   const n = cleanText(name, 32);
   const s = typeof symbol === 'string' ? symbol.replace(/^\$/, '').trim().toUpperCase() : '';
   if (!n || !SYMBOL_RE.test(s)) return null;
-  const description = art && art.description ? cleanText(art.description, 200) : (cluster === 'mainnet-beta' ? 'A coin launched on HatchPad.' : 'A devnet test token launched on HatchPad.');
+  const description = art && art.description ? cleanText(art.description, 200) : (cluster === 'mainnet-beta' ? 'A coin launched on ' + cleanText(platform || 'AutoPay', 32) + '.' : 'A devnet test token launched on ' + cleanText(platform || 'AutoPay', 32) + '.');
   const meta = { name: n, symbol: s, description, image: art && art.id && base ? base + '/art/' + art.id + '.' + (art.ext === 'jpg' ? 'jpg' : 'png') : '' };
   // The creator's own links, in the field names wallets and explorers read.
   const links = art && art.links && typeof art.links === 'object' ? art.links : {};

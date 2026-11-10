@@ -11,7 +11,7 @@
   // Header logo and the preview's first letter
   if (ex.logoUrl) { const img = $('pad-logo'); img.src = ex.logoUrl; img.hidden = false; img.addEventListener('error', () => { img.hidden = true; }); }
   $('brand').setAttribute('href', '/');
-  $('built-with').textContent = PAD.platform || 'BuildAPad';
+  $('built-with').textContent = PAD.platform || 'AutoPay';
 
   // The pad's own extras: banner, about text, badges, the owner's edit link, and the first-buy rule.
   if (ex.bannerUrl || ex.about) {

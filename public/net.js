@@ -25,7 +25,7 @@
     .then(function (c) { net.apply(c && c.cluster); return net; })
     .catch(function () { net.apply('devnet'); return net; });
   // The server puts the pad's name and wording in window.PAD. This is only a fallback for a bare static page.
-  if (!window.PAD) window.PAD = { id: 'hatchpad', name: 'HatchPad', subject: 'animal', aSubject: 'an animal', subjects: 'animals', ideas: { moods: null, things: null, extras: null } };
+  if (!window.PAD) window.PAD = { id: 'autopad', name: 'AutoPay', subject: 'animal', aSubject: 'an animal', subjects: 'animals', ideas: { moods: null, things: null, extras: null } };
   if (!window.PAD.platform) window.PAD.platform = window.PAD.name;
   // "65% creator, 15% pad owner, 20% BuildAPad", read from a coin's real on-chain split when the server sends it.
   window.feeLine = function (info) {

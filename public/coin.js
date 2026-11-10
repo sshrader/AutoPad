@@ -133,7 +133,7 @@
   }
 
   // Creator fees: anyone can see the amount, and the coin's creator sees the button to send it out. It always goes to the wallets in the
-  // coin's fee split (the creator and HatchPad), never to whoever pressed the button.
+  // coin's fee split (the creator and AutoPay), never to whoever pressed the button.
   function startFees(parent, c) {
     const W = window.AnimalWallet;
     const row = add(parent, 'div', undefined, 'cp-fees');
@@ -295,7 +295,7 @@
     const b = add(d, 'div', undefined, 'verify-body');
     let host = '';
     try { host = new URL(website).origin; } catch (e) { return; }
-    add(b, 'p', 'Put this code on your website, then press Check. Either save it as a text file at ' + host + '/.well-known/hatchpad-verify.txt, or add it anywhere on the page you linked (' + website + ').', 'hint');
+    add(b, 'p', 'Put this code on your website, then press Check. Either save it as a text file at ' + host + '/.well-known/autopay-verify.txt, or add it anywhere on the page you linked (' + website + ').', 'hint');
     const code = add(b, 'code', c.verifyCode, 'vcode');
     const row = add(b, 'div', undefined, 'row');
     const check = add(row, 'button', 'Check my website', 'btn'); check.type = 'button';
@@ -327,15 +327,6 @@
     .then(async r => {
       if (r.status === 200) {
         await AnimalNet.ready; render(r.body, await getCfg);
-        // A coin launched on a custom pad links back to that pad as well as to BuildAPad.
-        if (/^[a-z0-9-]{2,30}$/.test(r.body.pad || '')) {
-          fetch('/api/pads/' + r.body.pad, { headers: { Accept: 'application/json' } }).then(x => (x.ok ? x.json() : null)).then(p => {
-            if (!p || !p.pad) return;
-            document.getElementById('back-pad-name').textContent = p.pad.name;
-            document.getElementById('back-pad').href = '/p/' + encodeURIComponent(p.pad.slug);
-            document.getElementById('back-pad').hidden = false;
-          }).catch(() => { /* the BuildAPad link is still there */ });
-        }
       }
       else if (r.status === 404) problem('No coin found here. It may not be on the chain yet. Try again in a few seconds.');
       else problem('Could not load this coin. Try again in a moment.');

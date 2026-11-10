@@ -1,4 +1,4 @@
-// A free, send-nothing check of the pump.fun transactions HatchPad builds. It asks the network to SIMULATE them
+// A free, send-nothing check of the pump.fun transactions AutoPay builds. It asks the network to SIMULATE them
 // (no SOL is spent, nothing is signed) and prints whether the program accepted every account and argument.
 //
 // Usage (from this folder):

@@ -590,3 +590,8 @@ test('pairPrices reads a USD price per token from the RPC asset lookup and cache
   await launcher.pairPrices([M1, M2]);
   assert.equal(calls, 1);
 });
+
+test('token metadata names the platform, not a past brand', () => {
+  assert.equal(metadataFor('Salt Lantern', 'lntrn', null, '', 'mainnet-beta').description, 'A coin launched on AutoPay.');
+  assert.equal(metadataFor('Salt Lantern', 'lntrn', null, '', 'devnet', 'My Pad').description, 'A devnet test token launched on My Pad.');
+});

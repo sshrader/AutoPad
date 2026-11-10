@@ -1,4 +1,4 @@
-# Runs BuildAPad ON YOUR OWN COMPUTER against Solana MAINNET, for a small real-money test. Nothing here touches Railway.
+# Runs AutoPay ON YOUR OWN COMPUTER against Solana MAINNET, for a small real-money test. Nothing here touches Railway.
 # Run from the repo folder in PowerShell:   .\mainnet-local.ps1
 # It asks for two things and keeps them only in this window. Your wallet's key is never needed: Phantom signs everything.
 
