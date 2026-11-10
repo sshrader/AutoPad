@@ -67,12 +67,23 @@
   </section>
 
   <section class="panel" id="recent" aria-labelledby="recent-h">
-    <div class="head"><h2 id="recent-h">Recent coins on {{name}}</h2></div>
-    <div class="curvebox" id="curvebox" hidden>
-      <svg id="curve" viewBox="0 0 640 280" role="img" aria-labelledby="curve-t"><title id="curve-t">Recent coins placed along the bonding curve by how much they have raised</title></svg>
-      <p class="hint">Each coin sits where its raised SOL puts it. Further right is closer to full. Select one to open it.</p>
+    <div class="head"><h2 id="recent-h">Coins on {{name}}</h2></div>
+    <div class="tablewrap" id="statswrap" hidden>
+      <table class="coinstats" id="stats" aria-label="Coins launched on {{name}}, with market cap, holders, fees sent and airdrop status">
+        <thead><tr>
+          <th scope="col" class="l">Coin</th>
+          <th scope="col" class="r"><button type="button" data-k="marketCapSol">Market cap</button></th>
+          <th scope="col"><button type="button" data-k="progress">Curve</button></th>
+          <th scope="col" class="r"><button type="button" data-k="holders">Holders</button></th>
+          <th scope="col" class="r"><button type="button" data-k="feesSentSol">Fees sent</button></th>
+          <th scope="col" class="l">Airdrop</th>
+          <th scope="col" class="l">Setup</th>
+          <th scope="col" class="r"><button type="button" data-k="createdAt" class="on">Launched</button></th>
+        </tr></thead>
+        <tbody id="stats-body"></tbody>
+      </table>
     </div>
-    <div class="feed" id="feed" aria-live="polite"></div>
+    <div class="feed" id="feed" aria-live="polite" hidden></div>
     <p class="hint" id="feed-note">Loading the latest coins…</p>
   </section>
 
@@ -250,5 +261,6 @@
 <script src="/launch.js"></script>
 <script src="/trade.js"></script>
 <script src="/feed.js"></script>
+<script src="/stats.js"></script>
 </body>
 </html>

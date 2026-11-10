@@ -92,7 +92,7 @@ function createLaunches(opts) {
           items.push({
             pool: e.pool, mint: e.mint, name: e.name, symbol: e.symbol, creator: e.creator, pad: e.pad || '', preset: e.preset, createdAt: e.createdAt,
             imageUrl: rec ? '/art/' + rec.id + '.' + (rec.ext === 'jpg' ? 'jpg' : 'png') : '',
-            raisedSol: r.body.raisedSol, thresholdSol: r.body.thresholdSol, progress: r.body.progress,
+            raisedSol: r.body.raisedSol, thresholdSol: r.body.thresholdSol, progress: r.body.progress, marketCapSol: r.body.marketCapSol,
             migrated: r.body.migrated, curveFull: r.body.curveFull
           });
         } else if (r.status === 404) {
@@ -194,6 +194,7 @@ function createLaunches(opts) {
   const rateOf = e => (e.boostLamports / 1e9) / (e.boostMin / 60);
   const activeBoosts = () => entries.filter(e => e.boostStartAt && !hidden.has(e.pool) && now() < e.boostStartAt + e.boostMin * 60000)
     .sort((a, b) => rateOf(b) - rateOf(a) || a.boostStartAt - b.boostStartAt);
+  const boosted = () => new Set(activeBoosts().map(e => e.pool));
   async function promoted(slots) {
     const hit = caches.get('promoted');
     if (hit && now() - hit.at < listTtlMs) return hit.items;
@@ -266,7 +267,7 @@ function createLaunches(opts) {
   // Every coin written down, for the keeper to look at. The keeper asks the chain itself, so unconfirmed ones are simply skipped.
   const pools = () => entries.filter(e => !hidden.has(e.pool)).map(e => ({ pool: e.pool, mint: e.mint, name: e.name, symbol: e.symbol, creator: e.creator }));
 
-  return { record, list, pools, feeOf, boostIntent, startBoost, promoted, rateToBeat, detail, setSiteVerified, padOf, board, topCoins, findByArt, findAllByArt, findAllBySymbol, size: () => entries.length };
+  return { record, list, pools, feeOf, boostIntent, startBoost, boosted, promoted, rateToBeat, detail, setSiteVerified, padOf, board, topCoins, findByArt, findAllByArt, findAllBySymbol, size: () => entries.length };
 }
 
 module.exports = { createLaunches };

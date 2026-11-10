@@ -380,6 +380,13 @@ function createLauncher(opts) {
     return { curve: c.B.bondingCurveOf(mint).toBase58(), accounts, creator, complete };
   }
 
+  // How many wallets hold a coin (the bonding curve itself does not count). `more` is true when the RPC could only show the
+  // 20 biggest accounts, so the real number is at least this many.
+  async function holderCount(mint) {
+    const info = await airdropInfo(mint, '');
+    return { count: info.accounts.filter(a => a.amount > 0n && a.owner !== info.curve).length, more: info.complete === false };
+  }
+
   // Cheap read for the coin page: is the creator's approval still in place, and how many tokens does the creator hold.
   async function approval(mint, creator) {
     const c = await chain();
@@ -796,7 +803,7 @@ function createLauncher(opts) {
     }
   }
 
-  return { info, lookupAddresses, airdropInfo, airdropTransactions, approval, prepare, verifyBoost, step, status, pool, inspect, buy, fees, distribute, partnerFees, activity, pairs, pairPrices };
+  return { info, lookupAddresses, holderCount, airdropInfo, airdropTransactions, approval, prepare, verifyBoost, step, status, pool, inspect, buy, fees, distribute, partnerFees, activity, pairs, pairPrices };
 }
 
 // Metadata for the token, read by wallets and explorers. Built from the link and the stored animal, so the

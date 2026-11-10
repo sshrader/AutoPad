@@ -56,13 +56,16 @@ function createKeeper(opts) {
   const maxPays = Number.isInteger(o.maxPays) && o.maxPays > 0 ? o.maxPays : 8;        // payouts per run
   const maxChecks = Number.isInteger(o.maxChecks) && o.maxChecks > 0 ? o.maxChecks : 100; // coins looked at per run
   const minGasSol = Number.isFinite(o.minGasSol) ? o.minGasSol : 0.005;                 // stop paying below this keeper balance
-  const keep = Number.isInteger(o.keep) && o.keep > 0 ? o.keep : 300;
+  const keep = Number.isInteger(o.keep) && o.keep > 0 ? o.keep : 2000;
   const airdropper = o.airdropper || null;                                          // optional: sends scheduled airdrops each cycle
   const enabled = Boolean(io && launcher && launches && launcher.info().enabled);
 
   let payouts = [];
   if (file) { try { const d = JSON.parse(fs.readFileSync(file, 'utf8')); if (Array.isArray(d)) payouts = d.filter(p => p && B58_RE.test(p.pool || '') && Number.isFinite(p.sol) && Number.isFinite(p.at)); } catch (e) { /* first run */ } }
   let totalSol = payouts.reduce((n, p) => n + p.sol, 0);
+  const byPool = new Map();
+  const tally = p => { const t = byPool.get(p.pool) || { sol: 0, count: 0 }; t.sol += p.sol; t.count++; byPool.set(p.pool, t); };
+  payouts.forEach(tally);
   let totalCount = payouts.length;
   let lastRunAt = 0, nextRunAt = 0, lastError = '', lowGas = false, balanceSol = null, running = false, cursor = 0, timer = null;
   let lastRun = { checked: 0, paid: 0, errors: 0 };
@@ -103,6 +106,7 @@ function createKeeper(opts) {
           const sol = Number.isFinite(d.body.waitingSol) ? d.body.waitingSol : b.pendingSol;
           payouts.push({ pool: c.pool, symbol: c.symbol || '', name: c.name || '', sol, shares: (b.shares || []).map(s => ({ address: s.address, pct: s.pct })), sig, at: now() });
           if (payouts.length > keep) payouts = payouts.slice(payouts.length - keep);
+          tally(payouts[payouts.length - 1]);
           totalSol += sol; totalCount++; stats.paid++; lastError = '';
           save();
         } catch (e) {
@@ -139,7 +143,9 @@ function createKeeper(opts) {
     const n = Math.max(1, Math.min(50, Number(limit) || 20));
     return payouts.filter(p => !pool || p.pool === pool).slice(-n).reverse();
   }
-  return { run, start, stop, status, recent, enabled };
+  // What the keeper has paid out per coin: { sol, count }, from the saved payout list.
+  const paidOf = pool => byPool.get(pool) || { sol: 0, count: 0 };
+  return { run, start, stop, status, recent, paidOf, enabled };
 }
 
 module.exports = { createKeeper, web3Io };

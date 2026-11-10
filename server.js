@@ -85,6 +85,18 @@ function createApp(opts) {
   const unique = opts.unique || null;
   // AutoPay: the keeper pays out waiting creator fees on a schedule. These routes only report what it has done.
   const keeper = opts.keeper || null;
+  // Holder counts for the coin table are slow to read, so they are kept for five minutes and refreshed a few at a time in the background.
+  const holderCache = new Map();
+  let holderBusy = 0;
+  function holderStat(pool) {
+    const h = holderCache.get(pool), t = Date.now();
+    if ((!h || t - h.at > 300000) && !(h && h.busy) && holderBusy < 3 && launcher && launcher.holderCount) {
+      const slot = h || { at: 0, count: null, more: false };
+      slot.busy = true; holderCache.set(pool, slot); holderBusy++;
+      launcher.holderCount(pool).then(r => { slot.count = r.count; slot.more = r.more; slot.at = Date.now(); }, () => { slot.at = Date.now() - 240000; }).finally(() => { slot.busy = false; holderBusy--; });
+    }
+    return h && h.count !== null ? { count: h.count, more: h.more } : null;
+  }
   // Auto airdrop: the list of scheduled airdrops (saved to a file) and the chain reads for the coin page.
   const airdrops = opts.airdrops || null;
   // Paid boosts to the Promoted row: the prices, and how many slots there are.
@@ -267,6 +279,33 @@ function createApp(opts) {
       if (!keeper) return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(pathname === '/api/payouts' ? { payouts: [] } : { enabled: false }), noStore);
       const body = pathname === '/api/payouts' ? { payouts: keeper.recent(url.searchParams.get('limit'), (url.searchParams.get('pool') || '').slice(0, 44)) } : Object.assign({ serverNow: Date.now() }, keeper.status());
       return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(body), noStore);
+    }
+
+    // The front page's coin table: one row per coin with market cap, holders, fees the keeper has sent and airdrop status.
+    if (pathname === '/api/coinstats' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const hdr = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'public, max-age=15' });
+      if (!launches) return send(res, 200, JSON.stringify({ coins: [] }), hdr);
+      return launches.list('').then(async items => {
+        const sol = await unitUsd('');
+        const boosted = launches.boosted();
+        const rows = items.map(c => {
+          const hc = holderStat(c.pool);
+          const paid = keeper ? keeper.paidOf(c.pool) : { sol: 0, count: 0 };
+          const ad = airdrops ? airdrops.get(c.pool) : null;
+          const fee = launches.feeOf(c.pool);
+          return {
+            pool: c.pool, name: c.name, symbol: c.symbol, imageUrl: c.imageUrl, createdAt: c.createdAt,
+            marketCapSol: Number.isFinite(c.marketCapSol) ? c.marketCapSol : null,
+            marketCapUsd: Number.isFinite(c.marketCapSol) && Number.isFinite(sol) ? Math.round(c.marketCapSol * sol) : null,
+            raisedSol: c.raisedSol, thresholdSol: c.thresholdSol, progress: c.progress, migrated: Boolean(c.migrated),
+            holders: hc ? hc.count : null, holdersMore: hc ? hc.more : false,
+            feesSentSol: Math.round(paid.sol * 1e6) / 1e6, payouts: paid.count,
+            airdrop: ad ? { status: ad.status, pct: ad.pct, recipients: ad.recipients || 0, delivered: ad.delivered || '' } : null,
+            boosted: boosted.has(c.pool), feeMode: fee.mode, partnerPct: fee.partnerPct || 0
+          };
+        });
+        send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify({ coins: rows, solUsd: sol }), hdr);
+      }).catch(() => send(res, 500, JSON.stringify({ error: 'server_error' }), Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' })));
     }
 
     // A coin's scheduled airdrop: its settings and progress, plus whether the creator's approval is still in place.

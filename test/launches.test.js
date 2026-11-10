@@ -379,3 +379,33 @@ test('the fee choice made at launch is kept, and a half-valid partner choice fal
   assert.equal(l.feeOf(entry(4).pool).mode, 'creator');
   assert.equal(l.feeOf('unknown').mode, 'creator');
 });
+
+test('server: /api/coinstats gives one row per coin with market cap, fees sent, airdrop, boost and fee mode; holders fill in after a first read', async () => {
+  const P = entry(1).pool;
+  const onChain = new Set([P]);
+  const inspect = async address => onChain.has(address) ? { status: 200, body: { address, raisedSol: 2, thresholdSol: 85, progress: 0.3, marketCapSol: 41.5, migrated: false, curveFull: false } } : { status: 404, body: { error: 'pool_not_found' } };
+  const launches = createLaunches({ inspect, logger: quiet, listTtlMs: 0 });
+  launches.record(entry(1, { feeMode: 'partner', partner: 'Aj7pGhuAzG3Dy1CzQRiVk1YwPHjc5T7zUFfAAkVxsv4n', partnerPct: 15 }));
+  const keeper = { paidOf: p => (p === P ? { sol: 0.0123, count: 2 } : { sol: 0, count: 0 }), recent: () => [], status: () => ({ enabled: true }) };
+  const airdrops = { get: p => (p === P ? { status: 'done', pct: 10, recipients: 2, delivered: '5000' } : null) };
+  const launcher = { info: () => ({ enabled: true, cluster: 'devnet' }), holderCount: async () => ({ count: 7, more: false }) };
+  await withServer({ launcher, launches, keeper, airdrops }, async base => {
+    let r = await (await fetch(base + '/api/coinstats')).json();
+    assert.equal(r.coins.length, 1);
+    const c = r.coins[0];
+    assert.equal(c.pool, P);
+    assert.equal(c.marketCapSol, 41.5);
+    assert.equal(c.feesSentSol, 0.0123);
+    assert.equal(c.payouts, 2);
+    assert.deepEqual(c.airdrop, { status: 'done', pct: 10, recipients: 2, delivered: '5000' });
+    assert.equal(c.feeMode, 'partner');
+    assert.equal(c.partnerPct, 15);
+    assert.equal(c.boosted, false);
+    assert.equal(c.holders, null, 'not read yet');
+    await new Promise(r2 => setTimeout(r2, 30));
+    r = await (await fetch(base + '/api/coinstats')).json();
+    assert.equal(r.coins[0].holders, 7);
+    assert.equal(r.coins[0].holdersMore, false);
+  });
+  await withServer({}, async base => assert.deepEqual(await (await fetch(base + '/api/coinstats')).json(), { coins: [] }));
+});
