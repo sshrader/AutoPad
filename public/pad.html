@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{name}}</title>
 <meta name="description" content="{{description}}">
-<meta name="theme-color" content="#070708">
+<meta name="theme-color" content="#dde4ea">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=Spline+Sans+Mono:wght@400..600&display=swap">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <meta property="og:title" content="{{name}}">
 <meta property="og:description" content="{{tagline}}">
@@ -21,7 +21,7 @@
 <meta name="twitter:description" content="{{tagline}}">
 <meta name="twitter:image" content="{{ogImage}}">
 <link rel="stylesheet" href="/app.css">
-<link rel="stylesheet" href="/nv.css">
+<link rel="stylesheet" href="/ap.css">
 </head>
 <body>
 <main class="wrap">
@@ -34,19 +34,26 @@
     </div>
   </header>
 
-  <section class="nvhero" aria-labelledby="h1">
+  <section class="aphero" aria-labelledby="h1">
     <div>
-      <h1 id="h1">One ticker. One name. One picture.</h1>
-      <p class="lede">Every coin launched here is checked against every coin already here. Copies don't get built.</p>
-      <div class="row ctas"><a class="btn go" href="#start">Launch a coin</a><a class="btn" href="#recent">See the coins <span class="hint" id="coin-count"></span></a><a class="btn" href="/rules">Rules</a></div>
+      <h1 id="h1">Creator fees that pay out on their own.</h1>
+      <p class="lede">Launch a coin on pump.fun. Autopad checks it every few minutes and sends your share of the fees straight to your wallet. No claiming.</p>
+      <div class="row ctas"><a class="btn go" href="#start">Launch a coin</a><a class="btn" href="#recent">See the coins <span class="hint" id="coin-count"></span></a><a class="btn" href="/rules">How it works</a></div>
       <div class="row"><span class="badge" id="b-private" hidden>Private launchpad</span><span class="badge" id="b-buy" hidden></span><span class="badge" id="b-pair" hidden></span></div>
     </div>
-    <form class="nvcheck" id="nvcheck" autocomplete="off" onsubmit="return false">
-      <label for="nv-q">Is your ticker free?</label>
-      <div class="nvfield"><span class="dollar" aria-hidden="true">$</span><input type="text" id="nv-q" maxlength="10" placeholder="PEPE" spellcheck="false" autocapitalize="characters"></div>
-      <p class="nvresult idle" id="nv-result" role="status" aria-live="polite"><span class="msg">Type a ticker to check it against every coin launched here.</span></p>
-      <p class="count" id="nv-count"></p>
-    </form>
+    <aside class="stub" id="apstub" data-on="no" aria-label="Automatic payouts">
+      <div class="stub-h"><span>Payout stub</span><span class="stub-state" id="st-state">Checking…</span></div>
+      <div class="stub-big"><span class="stub-l" id="st-label">Next automatic payout in</span><output class="stub-n" id="st-count">--:--</output></div>
+      <dl class="ledger">
+        <div><dt>Paid out so far</dt><i class="lead"></i><dd id="st-total">–</dd></div>
+        <div><dt>Payouts sent</dt><i class="lead"></i><dd id="st-n">–</dd></div>
+        <div><dt>A coin is paid at</dt><i class="lead"></i><dd id="st-min">–</dd></div>
+        <div><dt>Checked every</dt><i class="lead"></i><dd id="st-every">–</dd></div>
+      </dl>
+      <div class="tear" aria-hidden="true"></div>
+      <h2 class="stub-h2">Latest payouts</h2>
+      <ul class="stub-list" id="st-list" aria-live="polite"></ul>
+    </aside>
   </section>
 
   <section class="stack" id="padinfo" hidden>
@@ -87,7 +94,7 @@
           </label>
         </div>
         <div class="row"><button type="submit" class="btn go big" id="c-go">Continue to website, socials and launch</button></div>
-        <p class="hint">Every coin here must be an original: one coin per ticker, name and picture. <a href="/rules">How the rules work</a></p>
+        <p class="hint">Your fees are paid to your wallet automatically. <a href="/rules">How payouts work</a></p>
         <p class="status" id="c-status" role="status"></p>
       </form>
       <div class="coinprev" aria-label="Preview of your coin">
@@ -162,10 +169,15 @@
   </details>
 
   <section id="about" class="band" aria-labelledby="about-h">
-    <h2 id="about-h">How fees work here</h2>
+    <h2 id="about-h">How you get paid</h2>
+    <ol class="apsteps">
+      <li><b>Launch</b><span>The fee split is written on-chain when the coin is created: the creator keeps the big share, Autopad takes a small one.</span></li>
+      <li><b>Trade</b><span>Every buy and sell on pump.fun adds creator fees. They build up in the coin's fee vault.</span></li>
+      <li><b>Get paid</b><span>Autopad sends the waiting fees to everyone in the split once a coin has enough waiting to be worth the network fee.</span></li>
+    </ol>
     <div class="aboutgrid">
       <div class="stack">
-        <p class="about" id="fee-note-how">Every trade pays a creator fee, shared on-chain between the wallets in each coin's split.</p>
+        <p class="about" id="fee-note-how">Every trade pays a creator fee, shared on-chain between the wallets in each coin's split. Autopad pays it out for you, and a payout can only go to those wallets.</p>
         <p class="about" data-net-only="devnet">{{name}} runs on Solana devnet for now, so every coin and every SOL here is play money.</p>
         <p class="about" data-net-only="mainnet-beta" hidden>Coins here are created by users and can lose all their value.</p>
       </div>
@@ -177,14 +189,14 @@
     </div>
   </section>
 
-  <p class="foot"><a href="/rules" id="built-with">NoVampPad</a>: the rules. Coins here are created by users, are not endorsed by {{name}}, and can lose all their value. Not financial advice.</p>
+  <p class="foot"><a href="/rules" id="built-with">Autopad</a>: how payouts work. Coins here are created by users, are not endorsed by {{name}}, and can lose all their value. Not financial advice.</p>
 </main>
 <script src="/net.js"></script>
 <script src="/wallet.js"></script>
 <script src="/walletbar.js"></script>
 <script src="/image.js"></script>
 <script src="/pad.js"></script>
-<script src="/nv.js"></script>
+<script src="/stub.js"></script>
 <script src="/launch.js"></script>
 <script src="/trade.js"></script>
 <script src="/feed.js"></script>

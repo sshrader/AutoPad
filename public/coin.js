@@ -138,12 +138,13 @@
     const W = window.AnimalWallet;
     const row = add(parent, 'div', undefined, 'cp-fees');
     const text = add(row, 'span', 'Checking creator fees…', 'hint');
-    const btn = add(row, 'button', 'Send out fees', 'btn'); btn.type = 'button'; btn.hidden = true;
+    const btn = add(row, 'button', 'Pay out now', 'btn'); btn.type = 'button'; btn.hidden = true;
     const fix = add(row, 'button', 'Finish setup', 'btn'); fix.type = 'button'; fix.hidden = true;
     const status = add(parent, 'p', '', 'hint'); status.setAttribute('role', 'status');
+    if (window.APStub && !c.holderRewards) window.APStub.coin(parent, c); // the automatic payout countdown and this coin's payouts
     let info = null, busy = false;
     const WHY = {
-      nothing_to_claim: 'There are no creator fees to send out yet.',
+      nothing_to_claim: 'There are no creator fees to pay out yet.',
       split_not_set: 'This coin\'s fee split has not been set yet.',
       migrated: 'This coin has moved to its trading pool; its fees are paid out on pump.fun.',
       pair_trade_not_ready: 'Trading this pair is not switched on yet.',

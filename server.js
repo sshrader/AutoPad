@@ -249,7 +249,7 @@ function createApp(opts) {
     if ((pathname === '/api/autoclaim' || pathname === '/api/payouts') && (req.method === 'GET' || req.method === 'HEAD')) {
       const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' });
       if (!keeper) return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(pathname === '/api/payouts' ? { payouts: [] } : { enabled: false }), noStore);
-      const body = pathname === '/api/payouts' ? { payouts: keeper.recent(url.searchParams.get('limit'), (url.searchParams.get('pool') || '').slice(0, 44)) } : keeper.status();
+      const body = pathname === '/api/payouts' ? { payouts: keeper.recent(url.searchParams.get('limit'), (url.searchParams.get('pool') || '').slice(0, 44)) } : Object.assign({ serverNow: Date.now() }, keeper.status());
       return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(body), noStore);
     }
 

@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>The rules · {{name}}</title>
-<meta name="theme-color" content="#070708">
+<title>How payouts work · {{name}}</title>
+<meta name="theme-color" content="#dde4ea">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=Spline+Sans+Mono:wght@400..600&display=swap">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/app.css">
-<link rel="stylesheet" href="/nv.css">
+<link rel="stylesheet" href="/ap.css">
 </head>
 <body>
 <main class="wrap">
@@ -18,27 +18,28 @@
     <a class="brand" href="/"><img src="/icon.svg" alt="" width="30" height="30">{{name}}</a>
     <div class="row"><a class="btn" href="/">Launch a coin</a></div>
   </header>
-  <h1>One coin per ticker, name and picture.</h1>
-  <p class="lede">{{name}} refuses copies. Before your coin is built, the site checks it against every coin already launched here.</p>
+  <h1>How payouts work</h1>
+  <p class="lede">{{name}} sends your creator fees to your wallet for you. Here is exactly what it does, and what it cannot do.</p>
   <section class="group">
-    <h3>What counts as a copy</h3>
+    <h3>What happens</h3>
     <ul class="feelist">
-      <li><b>Same ticker.</b> Case, symbols and look-alike characters are ignored, so PEPE, pepe, P3P3 and Pépé are one ticker.</li>
-      <li><b>Same name.</b> Filler words like "The", "Coin", "Token" and "Official" are ignored, so "Pepe" and "The Pepe Coin" match.</li>
-      <li><b>Same picture.</b> Resizing, cropping a little or changing a few pixels does not make a new picture. The check compares how pictures look, not the file.</li>
+      <li><b>The split is fixed at launch.</b> When a coin is created, its fee split is written on-chain with pump.fun: 90% to the wallet that launched it and 10% to {{name}}. Nobody can change it afterwards.</li>
+      <li><b>A keeper checks every coin.</b> A small server job looks at each coin's waiting creator fees on a schedule. You can see when the next check is on the home page.</li>
+      <li><b>It pays when it is worth it.</b> A coin is paid out once it has enough fees waiting to be worth the network fee. The amount is shown on the home page's stub.</li>
+      <li><b>Every payout is public.</b> Each one is a normal Solana transaction. The latest ones are listed on the home page, with a link to the explorer.</li>
     </ul>
   </section>
   <section class="group">
-    <h3>While you launch</h3>
-    <p class="hint">When you press Launch, your ticker, name and picture are held for 10 minutes, so nobody else can take them while you sign. If you do not sign, they are released. Once the coin exists on-chain, it counts as launched for good.</p>
+    <h3>What the keeper cannot do</h3>
+    <p class="hint">It never holds your fees. pump.fun's payout can only move fees to the wallets already in the coin's split, no matter who sends it, so the keeper cannot send them anywhere else. The keeper's own wallet only holds a few cents of SOL to pay network fees.</p>
   </section>
   <section class="group">
-    <h3>What this does not do</h3>
-    <p class="hint">The check covers coins launched on {{name}}. Anyone can still launch a copy on pump.fun or another site, so check the contract address before you buy. The rules also cannot tell who owns a name in the real world: the first coin here to use a ticker keeps it. Coins are made by users and can lose all their value.</p>
+    <h3>If you would rather not wait</h3>
+    <p class="hint">The wallet that launched a coin sees a "Pay out now" button on the coin's page. It does the same payout straight away, to the same wallets.</p>
   </section>
   <section class="group">
-    <h3>Fees</h3>
-    <p class="hint">Creator fees are shared on-chain: 90% to the wallet that launched the coin and 10% to {{name}}.</p>
+    <h3>Good to know</h3>
+    <p class="hint">Coins that have moved to their regular trading pool are paid out on pump.fun, not here. If the keeper is switched off or out of SOL for network fees, the home page says so, and fees keep building up safely until it is back. Coins are made by users and can lose all their value.</p>
   </section>
 </main>
 </body>

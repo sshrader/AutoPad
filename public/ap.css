@@ -1,0 +1,112 @@
+/* Autopad look. Loaded after app.css, so it replaces the shared graphite-and-orange tokens.
+   The idea is a pay stub: pale steel-blue "slip" ground, white paper for every surface, navy ink, one ultramarine accent,
+   figures in a mono face with tabular digits, dotted leaders like a ledger, and a perforated tear line on the stub. */
+:root {
+  --ground: #dde4ea; --paper: #f7f9fb; --soft: #e9eef3; --raise: #ffffff;
+  --text: #0c1424; --muted: #4f5f77; --line: #bcc7d3; --grid: rgba(12,20,36,.055);
+  --accent: #2f3dff; --on-accent: #ffffff; --edge: #2f3dff; --pop: #e3a512; --ok: #0a7f58; --bad: #c42b44;
+  --shadow: 0 1px 0 rgba(12,20,36,.05), 0 18px 30px -22px rgba(12,20,36,.35);
+  --r: 6px; --r-sm: 5px;
+  --font: "Schibsted Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --display: "Schibsted Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --mono: "Spline Sans Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0a0f1d; --paper: #111a2f; --soft: #17223c; --raise: #1a2644;
+    --text: #e8edf7; --muted: #94a3bf; --line: #2a3957; --grid: rgba(255,255,255,.045);
+    --accent: #7f8bff; --on-accent: #0a0f1d; --edge: #7f8bff; --pop: #f2bd45; --ok: #3ddc9c; --bad: #ff7d92;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 18px 30px -22px rgba(0,0,0,.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0a0f1d; --paper: #111a2f; --soft: #17223c; --raise: #1a2644;
+  --text: #e8edf7; --muted: #94a3bf; --line: #2a3957; --grid: rgba(255,255,255,.045);
+  --accent: #7f8bff; --on-accent: #0a0f1d; --edge: #7f8bff; --pop: #f2bd45; --ok: #3ddc9c; --bad: #ff7d92;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 18px 30px -22px rgba(0,0,0,.8);
+  color-scheme: dark;
+}
+body { background-image: radial-gradient(var(--grid) 1px, transparent 1px); background-size: 24px 24px; font-size: 16px; }
+.wrap { gap: 64px; max-width: 1080px; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: -.02em; }
+.mono, .tick, .coinprev .tick, .hint.mono { font-family: var(--mono); }
+
+/* Header */
+.top { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.brand { font-weight: 800; letter-spacing: -.03em; font-size: 1.3rem; }
+.nav a { font-weight: 500; }
+.nav a:hover { color: var(--accent); }
+.chip-net { border-radius: 4px; font-family: var(--mono); font-size: .75rem; background: var(--raise); }
+
+/* Surfaces and controls: white paper, hairline edges, small radius */
+.panel { background: var(--raise); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+input[type="text"], input[type="number"], textarea, select { background: var(--raise); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); }
+input:focus, textarea:focus, select:focus { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); outline-offset: 0; }
+.btn, button.btn { border-radius: var(--r-sm); background: var(--raise); border: 1px solid var(--line); color: var(--text); font-weight: 600; box-shadow: none; }
+.btn:hover:not(:disabled) { border-color: var(--accent); background: var(--raise); color: var(--accent); }
+.btn.go { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.go:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); filter: brightness(1.1); border-color: var(--accent); }
+.btn.go:focus-visible { outline-color: var(--text); }
+.drop { border-radius: var(--r); border: 1.5px dashed var(--line); background: var(--paper); }
+.badge { border-radius: 4px; font-family: var(--mono); font-size: .75rem; }
+.foot a { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Hero: the headline, and next to it the stub that shows the payouts happening */
+.aphero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 40px 60px; align-items: center; padding-top: 22px; }
+.aphero h1 { font-size: clamp(2.7rem, 6.4vw, 4.9rem); line-height: .96; font-weight: 800; letter-spacing: -.045em; margin: 0; text-wrap: balance; }
+.aphero .lede { max-width: 36ch; font-size: 1.15rem; color: var(--muted); margin: 20px 0 0; }
+.aphero .ctas { margin-top: 26px; }
+@media (max-width: 860px) { .aphero { grid-template-columns: minmax(0, 1fr); } }
+
+/* The pay stub */
+.stub { position: relative; background: var(--raise); border: 1px solid var(--line); border-radius: 4px; padding: 22px 24px 20px; box-shadow: var(--shadow); min-width: 0; }
+.stub::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--accent); border-radius: 4px 0 0 4px; }
+.stub-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font: 600 .78rem/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.stub-state { display: inline-flex; align-items: center; gap: 7px; }
+.stub-state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.stub[data-on="yes"] .stub-state { color: var(--ok); }
+.stub[data-on="yes"] .stub-state::before { background: var(--ok); }
+.stub-big { margin: 16px 0 4px; display: grid; gap: 2px; }
+.stub-l { font-size: .95rem; color: var(--muted); }
+.stub-n { display: block; font: 500 clamp(3rem, 8vw, 4.6rem)/1 var(--mono); letter-spacing: -.04em; font-variant-numeric: tabular-nums; color: var(--text); }
+.stub[data-on="no"] .stub-n { color: var(--muted); }
+.ledger { margin: 18px 0 0; display: grid; gap: 7px; }
+.ledger > div { display: flex; align-items: baseline; gap: 8px; font-size: .95rem; }
+.ledger dt { flex: none; color: var(--muted); }
+.ledger .lead { flex: 1; min-width: 12px; border-bottom: 1.5px dotted var(--line); transform: translateY(-3px); }
+.ledger dd { margin: 0; flex: none; font: 500 .95rem/1.3 var(--mono); font-variant-numeric: tabular-nums; }
+.tear { position: relative; margin: 20px -24px 16px; border-top: 2px dashed var(--line); }
+.tear::before, .tear::after { content: ""; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%; background: var(--ground); border: 1px solid var(--line); }
+.tear::before { left: -12px; clip-path: inset(0 0 0 50%); }
+.tear::after { right: -12px; clip-path: inset(0 50% 0 0); }
+.stub-h2 { margin: 0 0 8px; font: 700 .95rem/1.2 var(--display); letter-spacing: -.01em; }
+.stub-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.stub-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 14px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); font-size: .92rem; }
+.stub-list li:last-child { border-bottom: 0; }
+.stub-list .sym { font: 600 .9rem var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stub-list .amt { font: 500 .92rem var(--mono); font-variant-numeric: tabular-nums; color: var(--ok); }
+.stub-list .when { font-size: .8rem; color: var(--muted); }
+.stub-list a { color: inherit; text-underline-offset: 3px; }
+.stub-empty { margin: 0; font-size: .92rem; color: var(--muted); }
+
+/* A smaller stub on each coin's page */
+.paystub { margin-top: 4px; padding: 14px 16px 12px 20px; background: var(--paper); }
+.paystub .stub-n { font-size: 1.9rem; }
+.paystub .stub-big { margin: 8px 0 0; }
+.paystub .stub-list li { padding: 5px 0; }
+
+/* How it works: three steps, a real sequence */
+.apsteps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; counter-reset: s; border: 1px solid var(--line); border-radius: var(--r); background: var(--raise); box-shadow: var(--shadow); }
+.apsteps li { counter-increment: s; padding: 22px 24px; display: grid; gap: 6px; align-content: start; border-left: 1px solid var(--line); min-width: 0; }
+.apsteps li:first-child { border-left: 0; }
+.apsteps li::before { content: counter(s); font: 600 .85rem/1 var(--mono); color: var(--accent); }
+.apsteps b { font: 700 1.1rem/1.2 var(--display); letter-spacing: -.01em; }
+.apsteps span { color: var(--muted); font-size: .95rem; }
+@media (max-width: 760px) { .apsteps { grid-template-columns: minmax(0, 1fr); } .apsteps li { border-left: 0; border-top: 1px solid var(--line); } .apsteps li:first-child { border-top: 0; } }
+
+.feelist li b, .facts dd { font-variant-numeric: tabular-nums; }
+
+/* One site, one launchpad: there is no separate pad-owner share to show */
+.feekey .k-owner, .feebar .f-owner { display: none; }
