@@ -80,7 +80,14 @@ function fakeLoad(state) {
     async getSignatureStatuses(sigs) { return { value: sigs.map(s => state.statuses.get(s) || null) }; }
     async getTransaction(sig) { return state.txs && state.txs.get(sig) || null; }
     async getTokenAccountBalance(pk) { const v = state.tokens.get(pk.toBase58()); if (v === undefined) throw new Error('could not find account'); return { value: { amount: v } }; }
+    async getTokenLargestAccounts(mint) {
+      const want = mint.toBuffer();
+      const v = (state.tokenAccts || []).filter(a => a.data.subarray(0, 32).equals(want)).map(a => ({ address: new PublicKey(a.pubkey), amount: a.data.readBigUInt64LE(64).toString() })).sort((x, y) => (BigInt(y.amount) > BigInt(x.amount) ? 1 : -1)).slice(0, 20);
+      return { value: v };
+    }
+    async getMultipleAccountsInfo(keys) { return keys.map(k => { const a = state.accounts.get(k.toBase58()); return a ? { data: a.data } : null; }); }
     async getProgramAccounts(program, o) {
+      if (state.noGpa) throw new Error('TokenzQd excluded from account secondary indexes; this RPC method unavailable for key.');
       const f = o && o.filters && o.filters[0] && o.filters[0].memcmp;
       const want = f ? new PublicKey(f.bytes).toBuffer() : null;
       return (state.tokenAccts || []).filter(a => !want || a.data.subarray(0, 32).equals(want)).map(a => ({ pubkey: new PublicKey(a.pubkey), account: { data: a.data.subarray(0, 165) } }));

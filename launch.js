@@ -355,16 +355,29 @@ function createLauncher(opts) {
   // Every Token-2022 account of a coin, read for the airdrop: who holds it, how much, and who may move it.
   async function airdropInfo(mint, creator) {
     const c = await chain();
-    const list = await c.connection.getProgramAccounts(new c.web3.PublicKey(pump.TOKEN_2022), {
-      filters: [{ memcmp: { offset: 0, bytes: mint } }], dataSlice: { offset: 0, length: 165 }
-    });
+    let rows = [], complete = true;
+    try {
+      const list = await c.connection.getProgramAccounts(new c.web3.PublicKey(pump.TOKEN_2022), {
+        filters: [{ memcmp: { offset: 0, bytes: mint } }], dataSlice: { offset: 0, length: 165 }
+      });
+      rows = (list || []).map(it => ({ pubkey: it.pubkey, data: it.account.data }));
+    } catch (err) {
+      // Many RPC providers switch off "list every account of the token program". Fall back to the 20 largest holders, which
+      // is the whole list only while the coin has fewer than 20 token accounts.
+      if (!/excluded|unavailable|secondary index|not available|not supported|method not found/i.test(String(err && err.message))) throw err;
+      const big = await c.connection.getTokenLargestAccounts(new c.web3.PublicKey(mint));
+      const keys = ((big && big.value) || []).filter(v => BigInt(v.amount || 0) > 0n).map(v => v.address);
+      const infos = keys.length ? await c.connection.getMultipleAccountsInfo(keys) : [];
+      rows = keys.map((k, i) => ({ pubkey: k, data: infos[i] ? infos[i].data : null })).filter(r => r.data);
+      complete = keys.length < 20;
+    }
     const accounts = [];
-    for (const it of list || []) {
-      const t = airdropLib.parseTokenAccount(it.account.data);
+    for (const it of rows) {
+      const t = airdropLib.parseTokenAccount(it.data);
       if (!t || t.state === 2) continue;
       accounts.push({ account: it.pubkey.toBase58(), owner: new c.web3.PublicKey(t.owner).toBase58(), amount: t.amount, delegate: t.delegate ? new c.web3.PublicKey(t.delegate).toBase58() : null, delegatedAmount: t.delegatedAmount });
     }
-    return { curve: c.B.bondingCurveOf(mint).toBase58(), accounts, creator };
+    return { curve: c.B.bondingCurveOf(mint).toBase58(), accounts, creator, complete };
   }
 
   // Cheap read for the coin page: is the creator's approval still in place, and how many tokens does the creator hold.

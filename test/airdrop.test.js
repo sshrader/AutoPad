@@ -109,6 +109,39 @@ test('the launcher reads holders and the creator approval from the chain', async
   assert.equal(t.instructions.filter(i => i.program === pump.TOKEN_2022 && i.data.startsWith('0c')).length, 2);
 });
 
+test('when the RPC cannot list token accounts, holders come from the largest accounts, and it says if the list is partial', async () => {
+  const st = { noGpa: true };
+  const { launcher } = make({ keeperWallet: KEEPER, airdrop: true }, st);
+  const a1 = key(), a2 = key();
+  st.putTokenAccount(a1, { mint: MINT, owner: key(), amount: 5000 });
+  st.putTokenAccount(a2, { mint: MINT, owner: key(), amount: 700 });
+  let info = await launcher.airdropInfo(MINT, CREATOR);
+  assert.equal(info.accounts.length, 2);
+  assert.equal(info.complete, true);
+  for (let i = 0; i < 20; i++) st.putTokenAccount(key(), { mint: MINT, owner: key(), amount: 10 + i });
+  info = await launcher.airdropInfo(MINT, CREATOR);
+  assert.equal(info.accounts.length, 20);
+  assert.equal(info.complete, false);
+  st.noGpa = false;
+  assert.equal((await launcher.airdropInfo(MINT, CREATOR)).complete, true);
+});
+
+test('a partial holder list is never used to send; the job says why and keeps waiting', async () => {
+  const { w, launcher, io } = world({ holders: [BIG, BIG, BIG], t: 100000000 });
+  const base = launcher.airdropInfo;
+  launcher.airdropInfo = async (...a) => Object.assign(await base(...a), { complete: false });
+  const store = A.createAirdrops({});
+  store.add(job({ createdAt: 0 }));
+  await A.createAirdropper({ store, launcher, io, now: () => w.t, logger: quiet }).process();
+  assert.equal(store.get(MINT).status, 'scheduled');
+  assert.match(store.get(MINT).reason, /LAUNCH_RPC_URL/);
+  assert.equal(w.sends.length, 0);
+  launcher.airdropInfo = base;
+  await A.createAirdropper({ store, launcher, io, now: () => w.t, logger: quiet }).process();
+  assert.equal(store.get(MINT).status, 'done');
+  assert.equal(store.get(MINT).reason, '');
+});
+
 // A stand-in for the chain, to drive the runner: balances move when the "keeper" sends.
 function world(opts) {
   const w = { t: 1000000, holders: [], approved: 1000n, held: 1000n, curve: 'CURVE', sends: [], failNext: 0, landButFail: false, balance: 1 };

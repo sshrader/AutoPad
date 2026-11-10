@@ -106,6 +106,12 @@ function createAirdropper(opts) {
         if (now() < job.createdAt + graceMs) return;       // the launch may still be landing
         return finish(job, 'failed', 'The creator sold or cancelled the airdrop before it was due.');
       }
+      if (info.complete === false) {
+        // The RPC could only list the biggest holders, so a fair split between everyone is not possible. Say why and wait.
+        store.update(job.pool, { reason: 'Waiting: the RPC cannot list every holder. Set LAUNCH_RPC_URL to a provider that can (for example Helius).', checkedAt: now() });
+        return;
+      }
+      if (job.reason) store.update(job.pool, { reason: '' });
       const skip = new Set([job.creator, io.payer, info.curve, o.platformWallet].filter(Boolean));
       const eligible = info.accounts.filter(a => !skip.has(a.owner) && a.amount >= minHold);
       store.update(job.pool, { holders: eligible.length, checkedAt: now() });

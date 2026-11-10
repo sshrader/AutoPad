@@ -46,6 +46,7 @@ A creator who makes a first buy at launch can set aside part of it for holders: 
 - **Who counts as a holder:** a wallet with at least 100,000 of the coin. The creator, the bonding curve, the keeper and the platform wallet are skipped. The count is a signal, not proof of real people: a creator could hold the coin in many wallets.
 - **What is sent:** the smaller of the approved amount and what the creator still holds, in batches of 10 transfers. Progress is saved, so a failed batch resumes without paying anyone twice (before resending, the keeper checks whether the batch already landed). Each send costs the keeper a normal network fee, no account rent (holders already have token accounts).
 - **Needs:** `KEEPER_SECRET_KEY` and `AIRDROP=yes`. The form hides the option otherwise. Not available for holder-rewards coins or pair launchpads.
+- **RPC:** counting holders needs an RPC that allows listing a token's accounts (Helius does; the public devnet RPC does not). Otherwise the keeper falls back to the 20 biggest holders, which is only enough while the coin has fewer than 20 token accounts. Past that it waits and the coin page says to set `LAUNCH_RPC_URL`.
 - Wallets will show an extra "approve token delegate" prompt in the launch transaction. That is expected.
 - Route: `GET /api/airdrop?pool=` (settings, status, and whether the approval is still in place).
 

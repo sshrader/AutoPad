@@ -151,7 +151,7 @@
       if (a.status === 'done') t = 'Airdrop sent: ' + a.recipients + ' holders received ' + (Number(a.delivered) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' tokens.';
       else if (a.status === 'failed') t = 'Airdrop not delivered. ' + (a.reason || '');
       else if (a.approved !== undefined && a.approved === '0') t = 'Airdrop cancelled: the creator no longer allows it, so nothing will be sent.';
-      else t = 'Airdrop scheduled: ' + a.pct + '% of the creator\'s first buy goes to holders once ' + a.minHolders + ' wallets hold this coin' + (mins > 0 ? ' and in about ' + left : '') + (a.holders ? ' (' + a.holders + ' counted so far)' : '') + '. The tokens stay in the creator\'s wallet until then, so this is not a lock.';
+      else t = 'Airdrop scheduled: ' + a.pct + '% of the creator\'s first buy goes to holders once ' + a.minHolders + ' wallets hold this coin' + (mins > 0 ? ' and in about ' + left : '') + (a.holders ? ' (' + a.holders + ' counted so far)' : '') + '. The tokens stay in the creator\'s wallet until then, so this is not a lock.' + (a.reason ? ' ' + a.reason : '');
       ad.textContent = t; ad.hidden = false;
     }).catch(() => {});
     if (window.APStub && !c.holderRewards) window.APStub.coin(parent, c); // the automatic payout countdown and this coin's payouts
