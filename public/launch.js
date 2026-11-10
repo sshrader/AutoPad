@@ -61,6 +61,16 @@
     box.hidden = false;
   }
 
+  // Once the launch is finished, a button to the coin's own page.
+  function coinLink(pool) {
+    const box = $('dl-result');
+    if (!pool || box.querySelector('.coin-go')) return;
+    const a = document.createElement('a');
+    a.className = 'btn go coin-go'; a.href = '/coin/' + encodeURIComponent(pool); a.textContent = 'View your coin';
+    const row = document.createElement('div'); row.className = 'row'; row.appendChild(a);
+    box.appendChild(row); box.hidden = false;
+  }
+
   async function connect() {
     busy = true; render();
     try {
@@ -97,6 +107,7 @@
       if (st !== 'confirmed') { say('That step did not confirm. Your coin exists. Press Launch to continue where it stopped.', true); return; }
     }
     const boosted = done ? await startBoost() : null;
+    if (done) coinLink(data.pool);
     if (done && boosted !== false) pending = null;
     say(done ? 'Done ✓ Your coin is live.' + (boosted ? ' Your boost has started: it shows in the Promoted row for about ' + boosted + ' min.' : '') + ' Trade it in the card below.' : 'Your coin is live, but a step is still pending. Press Launch to continue.', !done);
     if (done && boosted === false) say('Your coin is live, and your boost payment went through, but it has not started yet. Press Launch to try again.', true);
@@ -204,6 +215,7 @@
       const a = document.createElement('a');
       a.href = 'https://explorer.solana.com/address/' + encodeURIComponent(data.mint) + AnimalNet.suffix; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Token ↗';
       box.appendChild(a); box.hidden = false;
+      coinLink(data.pool);
       say('Done ✓ Your coin is live. Find it in the coin list.');
       $('fl-code').value = '';
       document.dispatchEvent(new CustomEvent('animalpad:launched', { detail: { pool: data.pool } }));
