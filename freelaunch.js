@@ -87,7 +87,16 @@ function createFreeLaunch(opts) {
     }
   }
 
-  return { issue, launch, valid, messageFor };
+  // What a code is doing, for the page that made it: ready, working, used or expired.
+  function status(code) {
+    const e = codes[norm(code)];
+    if (!e) return 'unknown';
+    if (e.usedAt) return 'used';
+    if (now() - e.at >= ttlMs) return 'expired';
+    return e.busy ? 'working' : 'ready';
+  }
+
+  return { issue, launch, valid, status, admins, messageFor };
 }
 
 module.exports = { createFreeLaunch, messageFor };

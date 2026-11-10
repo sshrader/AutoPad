@@ -214,6 +214,49 @@
   }
   if ($('fl-go')) $('fl-go').addEventListener('click', freeLaunch);
 
+  // The owner's box: with the platform wallet connected, make a code here and watch it go from ready to used.
+  (function () {
+    const box = $('owner-free');
+    if (!box) return;
+    let admins = [], addr = '', code = '', timer = null;
+    const KEY = 'autopay-free-code';
+    try { code = localStorage.getItem(KEY) || ''; } catch (e) { code = ''; }
+    const osay = (t, bad) => { const e = $('of-status'); e.textContent = t; e.className = 'dl-status' + (bad ? ' bad' : ''); };
+    const LABEL = { ready: 'Ready: not used yet', working: 'In use right now…', used: 'Used', expired: 'Expired', unknown: 'Expired' };
+    function show() {
+      box.hidden = !(freeOn && addr && admins.indexOf(addr) !== -1);
+      $('of-code').hidden = !code; $('of-code').textContent = code;
+    }
+    async function poll() {
+      clearTimeout(timer);
+      if (!code || box.hidden) { $('of-state').hidden = true; return; }
+      try {
+        const r = await fetch('/api/launch/free?code=' + encodeURIComponent(code)).then(x => x.json());
+        const st = r && r.state ? r.state : 'unknown';
+        $('of-state').hidden = false; $('of-state').textContent = LABEL[st] || st;
+        $('of-code').style.textDecoration = st === 'ready' || st === 'working' ? '' : 'line-through';
+        if (st === 'ready' || st === 'working') timer = setTimeout(poll, 8000);
+      } catch (e) { timer = setTimeout(poll, 15000); }
+    }
+    $('of-make').addEventListener('click', async () => {
+      try {
+        const ts = Date.now();
+        osay('Approve the signature in your wallet. It does not spend anything.');
+        const signature = await W.signMessage('AutoPay: make a one-time free launch code. Wallet: ' + addr + '. Time: ' + ts);
+        const res = await fetch('/api/admin/freecode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: addr, ts: ts, signature: signature }) });
+        const out = await res.json().catch(() => null);
+        if (!res.ok || !out || !out.code) { osay(({ too_many_open: 'There are already 10 unused codes.', not_admin: 'This wallet cannot make codes.', stale: 'Your clock looks off. Try again.' })[out && out.error] || 'Could not make a code.', true); return; }
+        code = out.code;
+        try { localStorage.setItem(KEY, code); } catch (e) { /* the code is still on screen */ }
+        osay('Give this code to one tester.');
+        show(); poll();
+      } catch (err) { osay('That was not approved.', true); }
+    });
+    addr = (W && W.address) || '';
+    document.addEventListener('animalpad:wallet', e => { addr = (e.detail && e.detail.address) || ''; show(); poll(); });
+    document.addEventListener('animalpad:freeconfig', e => { admins = (e.detail && e.detail.admins) || []; show(); poll(); });
+  })();
+
   document.addEventListener('animalpad:reset', () => { staged = null; pending = null; $('dl-result').hidden = true; say(''); render(); });
 
   document.addEventListener('animalpad:wallet', e => { wallet = (e.detail && e.detail.address) || null; render(); });
@@ -232,6 +275,7 @@
     .then(info => {
       enabled = Boolean(info && info.enabled);
       freeOn = Boolean(info && info.free);
+      document.dispatchEvent(new CustomEvent('animalpad:freeconfig', { detail: { admins: (info && info.freeAdmins) || [] } }));
       split = info && info.split ? info.split : null;
       const ex = window.PAD.extra;
       if (split && ex && Number.isInteger(ex.ownerPct) && ex.ownerPct > 0) split = { creatorPct: split.creatorPct - ex.ownerPct, ownerPct: ex.ownerPct, platformPct: split.platformPct };

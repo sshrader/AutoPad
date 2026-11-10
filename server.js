@@ -559,6 +559,11 @@ function createApp(opts) {
       }).catch(() => send(res, 500, JSON.stringify({ error: 'server_error' }), noStore));
       return;
     }
+    if (pathname === '/api/launch/free' && req.method === 'GET') {
+      const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' });
+      if (!freeLaunch) return send(res, 404, JSON.stringify({ error: 'free_off' }), noStore);
+      return send(res, 200, JSON.stringify({ state: freeLaunch.status(url.searchParams.get('code') || '') }), noStore);
+    }
     if (pathname === '/api/launch/free' && req.method === 'POST') {
       const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store', Connection: 'close' });
       if (!freeLaunch || !launcher) return send(res, 404, JSON.stringify({ error: 'free_off' }), noStore);
@@ -802,7 +807,7 @@ function createApp(opts) {
     if (pathname === '/api/launch/config') {
       const info = launcher ? launcher.info() : { enabled: false, cluster: 'devnet' };
       // What the launch form can offer: holder rewards only where the site has switched them on, and how much of the fees a partner can take.
-      const out = Object.assign({}, info, { holderRewards: process.env.HOLDER_REWARDS === 'yes', maxPartnerPct: Math.max(0, 50 - (info.platformPct || 0)), free: Boolean(freeLaunch) });
+      const out = Object.assign({}, info, { holderRewards: process.env.HOLDER_REWARDS === 'yes', maxPartnerPct: Math.max(0, 50 - (info.platformPct || 0)), free: Boolean(freeLaunch), freeAdmins: freeLaunch ? freeLaunch.admins : [] });
       return send(res, 200, JSON.stringify(out), Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' }));
     }
 
