@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const B58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const LIMITS = { minPct: 1, maxPct: 50, minHolders: 5, maxHolders: 1000, minHours: 1, maxHours: 168 };
+const LIMITS = { minPct: 1, maxPct: 50, minHolders: 5, maxHolders: 1000, minMinutes: 1, maxMinutes: 10080 };
 
 // Reads the first 165 bytes of a token account (the layout every Token-2022 account starts with).
 function parseTokenAccount(data) {
@@ -38,15 +38,15 @@ function allocate(total, holders) {
   return rows.filter(r => r.amount > 0n).map(r => ({ key: r.key, amount: r.amount }));
 }
 
-// What the launch form asks for, checked. Returns { pct, holders, hours } or null if absent, or false if wrong.
+// What the launch form asks for, checked. Returns { pct, holders, minutes } or null if absent, or false if wrong.
 function parseSettings(b) {
   const has = x => x !== undefined && x !== null && x !== '';
   if (!has(b.airdropPct)) return null;
-  const pct = Number(b.airdropPct), holders = Number(b.airdropHolders), hours = Number(b.airdropHours);
+  const pct = Number(b.airdropPct), holders = Number(b.airdropHolders), minutes = Number(b.airdropMinutes);
   if (!Number.isInteger(pct) || pct < LIMITS.minPct || pct > LIMITS.maxPct) return false;
   if (!Number.isInteger(holders) || holders < LIMITS.minHolders || holders > LIMITS.maxHolders) return false;
-  if (!Number.isInteger(hours) || hours < LIMITS.minHours || hours > LIMITS.maxHours) return false;
-  return { pct, holders, hours };
+  if (!Number.isInteger(minutes) || minutes < LIMITS.minMinutes || minutes > LIMITS.maxMinutes) return false;
+  return { pct, holders, minutes };
 }
 
 // The list of airdrops, saved to a file so a restart keeps them.
@@ -68,7 +68,7 @@ function createAirdrops(opts) {
   return {
     add(j) {
       if (!j || !B58_RE.test(j.pool || '') || jobs.has(j.pool)) return null;
-      const job = { pool: j.pool, creator: j.creator, pct: j.pct, minHolders: j.minHolders, afterHours: j.afterHours, tokens: String(j.tokens || '0'), createdAt: j.createdAt, status: 'scheduled', reason: '', holders: 0, checkedAt: 0, tries: 0 };
+      const job = { pool: j.pool, creator: j.creator, pct: j.pct, minHolders: j.minHolders, afterMinutes: j.afterMinutes, tokens: String(j.tokens || '0'), createdAt: j.createdAt, status: 'scheduled', reason: '', holders: 0, checkedAt: 0, tries: 0 };
       jobs.set(job.pool, job); save(); return job;
     },
     get(pool) { return jobs.get(pool) || null; },
@@ -94,7 +94,7 @@ function createAirdropper(opts) {
 
   // One airdrop. Returns nothing; it records its own result.
   async function work(job) {
-    const due = job.createdAt + job.afterHours * 3600000;
+    const due = job.createdAt + job.afterMinutes * 60000;
     if (now() < due) return;
     const info = await launcher.airdropInfo(job.pool, job.creator);
     if (!info) { fail(job, 'chain read failed', true); return; }

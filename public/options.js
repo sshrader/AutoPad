@@ -93,10 +93,10 @@
     $('ad-fields').hidden = !on;
     var out = $('ad-preview');
     if (!on) { out.textContent = 'No airdrop.'; return; }
-    out.textContent = Number($('ad-pct').value) + '% of the tokens from your first buy go to holders once ' + Number($('ad-holders').value) + ' wallets hold your coin and ' + Number($('ad-hours').value) + ' hours have passed, whichever comes last.';
+    out.textContent = Number($('ad-pct').value) + '% of the tokens from your first buy go to holders once ' + Number($('ad-holders').value) + ' wallets hold your coin and ' + Number($('ad-minutes').value) + ' minutes have passed, whichever comes last.';
   }
   $('ad-on').addEventListener('change', drawAirdrop);
-  ['ad-pct', 'ad-holders', 'ad-hours'].forEach(function (id) { $(id).addEventListener('input', drawAirdrop); });
+  ['ad-pct', 'ad-holders', 'ad-minutes'].forEach(function (id) { $(id).addEventListener('input', drawAirdrop); });
   drawAirdrop();
 
   feeBox.addEventListener('change', drawFee);
@@ -122,13 +122,13 @@
         body.boostSol = picked;
       }
       if (airdropOn && $('ad-on').checked) {
-        var ap = Number($('ad-pct').value), ah = Number($('ad-holders').value), at = Number($('ad-hours').value);
+        var ap = Number($('ad-pct').value), ah = Number($('ad-holders').value), at = Number($('ad-minutes').value);
         if (!(firstBuy > 0)) return { ok: false, error: 'An airdrop comes from your first buy. Enter a "Buy at launch" amount, or turn the airdrop off.' };
         if (m === 'holder') return { ok: false, error: 'Holder-rewards coins cannot have an airdrop. Turn the airdrop off.' };
         if (!Number.isInteger(ap) || ap < 1 || ap > 50) return { ok: false, error: 'The airdrop share must be a whole number from 1 to 50.' };
         if (!Number.isInteger(ah) || ah < 5 || ah > 1000) return { ok: false, error: 'The airdrop holder count must be a whole number from 5 to 1000.' };
-        if (!Number.isInteger(at) || at < 1 || at > 168) return { ok: false, error: 'The airdrop wait must be a whole number of hours from 1 to 168.' };
-        body.airdropPct = ap; body.airdropHolders = ah; body.airdropHours = at;
+        if (!Number.isInteger(at) || at < 1 || at > 10080) return { ok: false, error: 'The airdrop wait must be a whole number of minutes from 1 to 10080 (7 days).' };
+        body.airdropPct = ap; body.airdropHolders = ah; body.airdropMinutes = at;
       }
       return { ok: true, body: body };
     }

@@ -275,7 +275,7 @@ function createApp(opts) {
       const pool = (url.searchParams.get('pool') || '').slice(0, 44);
       const job = airdrops && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(pool) ? airdrops.get(pool) : null;
       if (!job) return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify({ airdrop: null }), noStore);
-      const out = { pct: job.pct, minHolders: job.minHolders, afterHours: job.afterHours, dueAt: job.createdAt + job.afterHours * 3600000, status: job.status, reason: job.reason || '', holders: job.holders || 0, recipients: job.recipients || 0, tokens: job.tokens, delivered: job.delivered || '', serverNow: Date.now() };
+      const out = { pct: job.pct, minHolders: job.minHolders, afterMinutes: job.afterMinutes, dueAt: job.createdAt + job.afterMinutes * 60000, status: job.status, reason: job.reason || '', holders: job.holders || 0, recipients: job.recipients || 0, tokens: job.tokens, delivered: job.delivered || '', serverNow: Date.now() };
       const live = job.status === 'scheduled' || job.status === 'sending' ? launcher.approval(job.pool, job.creator).catch(() => null) : Promise.resolve(null);
       return live.then(a => { if (a) { out.held = a.held; out.approved = a.approved; } send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify({ airdrop: out }), noStore); });
     }
@@ -600,7 +600,7 @@ function createApp(opts) {
               launches.record({ pool: r.body.pool, mint: r.body.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: body.creator, art: body.art, pad: padSlug, preset: '', devBuySol: r.body.firstBuySol, feeMode, partner, partnerPct, boostLamports: r.body.boost ? r.body.boost.lamports : 0, boostMin: r.body.boost ? r.body.boost.minutes : 0 });
             }
             if (action === 'prepare' && r.status === 200 && r.body.airdrop && airdrops) {
-              airdrops.add({ pool: r.body.pool, creator: body.creator, pct: r.body.airdrop.pct, minHolders: r.body.airdrop.holders, afterHours: r.body.airdrop.hours, tokens: r.body.airdrop.tokens, createdAt: Date.now() });
+              airdrops.add({ pool: r.body.pool, creator: body.creator, pct: r.body.airdrop.pct, minHolders: r.body.airdrop.holders, afterMinutes: r.body.airdrop.minutes, tokens: r.body.airdrop.tokens, createdAt: Date.now() });
             }
             if (action === 'prepare' && r.status === 200 && typeof body.art === 'string') {
               // Links are saved, then the picture is kept for good and its links are frozen.

@@ -39,14 +39,14 @@ test('allocate splits exactly, in proportion, and skips empty holders', () => {
 
 test('airdrop settings are checked', () => {
   assert.equal(A.parseSettings({}), null);
-  assert.deepEqual(A.parseSettings({ airdropPct: 10, airdropHolders: 50, airdropHours: 24 }), { pct: 10, holders: 50, hours: 24 });
-  for (const bad of [{ airdropPct: 0 }, { airdropPct: 51 }, { airdropPct: 10, airdropHolders: 2, airdropHours: 24 }, { airdropPct: 10, airdropHolders: 50, airdropHours: 0 }, { airdropPct: 10, airdropHolders: 50, airdropHours: 200 }, { airdropPct: 2.5, airdropHolders: 50, airdropHours: 24 }, { airdropPct: 10, airdropHolders: 'x', airdropHours: 24 }]) assert.equal(A.parseSettings(bad), false);
+  assert.deepEqual(A.parseSettings({ airdropPct: 10, airdropHolders: 50, airdropMinutes: 1440 }), { pct: 10, holders: 50, minutes: 1440 });
+  for (const bad of [{ airdropPct: 0 }, { airdropPct: 51 }, { airdropPct: 10, airdropHolders: 2, airdropMinutes: 1440 }, { airdropPct: 10, airdropHolders: 50, airdropMinutes: 0 }, { airdropPct: 10, airdropHolders: 50, airdropMinutes: 20000 }, { airdropPct: 2.5, airdropHolders: 50, airdropMinutes: 1440 }, { airdropPct: 10, airdropHolders: 'x', airdropMinutes: 1440 }]) assert.equal(A.parseSettings(bad), false);
 });
 
 test('a launch asks for an airdrop only when it is on, with a first buy; the approval is inside the launch transaction', async () => {
   const TABLE = key();
   const st = { tables: new Map([[TABLE, { key: TABLE, state: { authority: null, addresses: [] } }]]) };
-  const body = Object.assign({ firstBuySol: 0.5, airdropPct: 10, airdropHolders: 50, airdropHours: 24 }, good);
+  const body = Object.assign({ firstBuySol: 0.5, airdropPct: 10, airdropHolders: 50, airdropMinutes: 1440 }, good);
   const off = make({ lookupTable: TABLE, keeperWallet: KEEPER }, st).launcher;
   assert.equal((await off.prepare(body, ctx)).body.error, 'airdrop_unavailable');
   const { launcher } = make({ lookupTable: TABLE, keeperWallet: KEEPER, airdrop: true }, st);
@@ -56,7 +56,7 @@ test('a launch asks for an airdrop only when it is on, with a first buy; the app
   const r = await launcher.prepare(body, ctx);
   assert.equal(r.status, 200);
   assert.ok(BigInt(r.body.airdrop.tokens) > 0n);
-  assert.equal(r.body.airdrop.hours, 24);
+  assert.equal(r.body.airdrop.minutes, 1440);
   const t = tx(r.body.transaction);
   assert.equal(approves(t).length, 1);
   // the approve is the last instruction, after the buy
@@ -73,14 +73,14 @@ test('the approval is off without the keeper wallet, even if the switch is on', 
 test('without a lookup table the approval rides in the separate buy step', async () => {
   const st = {};
   const { launcher } = make({ keeperWallet: KEEPER, airdrop: true }, st);
-  const body = Object.assign({ firstBuySol: 0.5, airdropPct: 10, airdropHolders: 50, airdropHours: 24 }, good);
+  const body = Object.assign({ firstBuySol: 0.5, airdropPct: 10, airdropHolders: 50, airdropMinutes: 1440 }, good);
   const r = await launcher.prepare(body, ctx);
   assert.equal(r.status, 200);
   assert.equal(r.body.atomic, false);
   assert.equal(approves(tx(r.body.transaction)).length, 0);
   assert.ok(r.body.airdrop);
   st.putCurve(r.body.mint, { creator: st.B.sharingConfigOf(r.body.mint).toBase58() });
-  const s = await launcher.step({ mint: r.body.mint, creator: CREATOR, firstBuySol: 0.5, airdropPct: 10, airdropHolders: 50, airdropHours: 24 }, ctx);
+  const s = await launcher.step({ mint: r.body.mint, creator: CREATOR, firstBuySol: 0.5, airdropPct: 10, airdropHolders: 50, airdropMinutes: 1440 }, ctx);
   assert.equal(s.body.step, 'buy');
   assert.equal(approves(tx(s.body.transaction)).length, 1);
   const plain = await launcher.step({ mint: r.body.mint, creator: CREATOR, firstBuySol: 0.5 }, ctx);
@@ -132,7 +132,7 @@ function world(opts) {
   };
   return { w, launcher, io };
 }
-const job = over => Object.assign({ pool: MINT, creator: CREATOR, pct: 10, minHolders: 3, afterHours: 1, tokens: '1000', createdAt: 1000000 }, over);
+const job = over => Object.assign({ pool: MINT, creator: CREATOR, pct: 10, minHolders: 3, afterMinutes: 60, tokens: '1000', createdAt: 1000000 }, over);
 const BIG = 200000000000;
 
 test('the runner waits for the time, then for enough holders, then sends pro rata and finishes', async () => {
@@ -198,7 +198,7 @@ test('if the creator sold or cancelled, nothing is sent and the airdrop says so'
   assert.equal(w.sends.length, 0);
   // a launch still landing is given time
   const s2 = A.createAirdrops({});
-  s2.add(job({ createdAt: w.t - 4000000, afterHours: 1 }));
+  s2.add(job({ createdAt: w.t - 4000000, afterMinutes: 60 }));
   await A.createAirdropper({ store: s2, launcher, io, now: () => w.t, logger: quiet, graceMs: 99999999 }).process();
   assert.equal(s2.get(MINT).status, 'scheduled');
 });

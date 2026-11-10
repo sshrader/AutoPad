@@ -257,14 +257,14 @@ function createLauncher(opts) {
           real_token_reserves: glob.initial_real_token_reserves
         };
         const ap = airdrop ? approveInstructions(c, creatorPk, mint, fresh, firstBuySol, glob, airdrop) : null;
-        if (ap) airdropOut = { pct: airdrop.pct, holders: airdrop.holders, hours: airdrop.hours, tokens: ap.tokens.toString() };
+        if (ap) airdropOut = { pct: airdrop.pct, holders: airdrop.holders, minutes: airdrop.minutes, tokens: ap.tokens.toString() };
         ixs = budget(c, CU.create + CU.buy + (ap ? CU.approve : 0)).concat([ix], fees, buyInstructions(c, creatorPk, mint, fresh, firstBuySol, 1000, glob), ap ? ap.ixs : []);
       } else if (airdrop) {
         // No lookup table: the first buy is its own step later, and the approval goes in that step's transaction.
         const glob = await readGlobal(c);
         const fresh = { virtual_token_reserves: glob.initial_virtual_token_reserves, virtual_quote_reserves: glob.initial_virtual_sol_reserves, real_token_reserves: glob.initial_real_token_reserves };
         const ap = approveInstructions(c, creatorPk, mint, fresh, firstBuySol, glob, airdrop);
-        if (ap) airdropOut = { pct: airdrop.pct, holders: airdrop.holders, hours: airdrop.hours, tokens: ap.tokens.toString() };
+        if (ap) airdropOut = { pct: airdrop.pct, holders: airdrop.holders, minutes: airdrop.minutes, tokens: ap.tokens.toString() };
       }
       const transaction = await toTx(c, ixs, creatorPk, [mintKp], table);
       return { status: 200, body: { transaction, mint, pool: mint, curve: c.B.bondingCurveOf(mintKp.publicKey).toBase58(), firstBuySol, atomic, pair: quote ? quote.mint.toBase58() : '', holderRewards: holder, launchFeeSol: holder ? holderFeeSol : 0, boost: boost ? { sol: boost.sol, minutes: boost.minutes, lamports: boost.lamports } : null, airdrop: airdropOut, split: holder ? { creatorPct: 0, ownerPct: 0, platformPct: 0 } : splitFor(ctx && ctx.pad), cluster } };

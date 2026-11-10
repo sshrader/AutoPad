@@ -145,12 +145,13 @@
     fetch('/api/airdrop?pool=' + encodeURIComponent(c.pool), { headers: { Accept: 'application/json' }, cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
       const a = d && d.airdrop;
       if (!a) return;
-      const hrs = Math.max(0, Math.ceil((a.dueAt - (a.serverNow || Date.now())) / 3600000));
+      const mins = Math.max(0, Math.ceil((a.dueAt - (a.serverNow || Date.now())) / 60000));
+      const left = mins >= 120 ? Math.round(mins / 60) + ' h' : mins + ' min';
       let t;
       if (a.status === 'done') t = 'Airdrop sent: ' + a.recipients + ' holders received ' + (Number(a.delivered) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' tokens.';
       else if (a.status === 'failed') t = 'Airdrop not delivered. ' + (a.reason || '');
       else if (a.approved !== undefined && a.approved === '0') t = 'Airdrop cancelled: the creator no longer allows it, so nothing will be sent.';
-      else t = 'Airdrop scheduled: ' + a.pct + '% of the creator\'s first buy goes to holders once ' + a.minHolders + ' wallets hold this coin' + (hrs > 0 ? ' and in about ' + hrs + ' h' : '') + (a.holders ? ' (' + a.holders + ' counted so far)' : '') + '. The tokens stay in the creator\'s wallet until then, so this is not a lock.';
+      else t = 'Airdrop scheduled: ' + a.pct + '% of the creator\'s first buy goes to holders once ' + a.minHolders + ' wallets hold this coin' + (mins > 0 ? ' and in about ' + left : '') + (a.holders ? ' (' + a.holders + ' counted so far)' : '') + '. The tokens stay in the creator\'s wallet until then, so this is not a lock.';
       ad.textContent = t; ad.hidden = false;
     }).catch(() => {});
     if (window.APStub && !c.holderRewards) window.APStub.coin(parent, c); // the automatic payout countdown and this coin's payouts
