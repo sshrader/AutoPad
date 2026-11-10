@@ -1,0 +1,18 @@
+{
+  "name": "autopad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A pump.fun launchpad that pays creators automatically: waiting creator fees are sent out on a schedule, no claiming needed.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0",
+    "sharp": "^0.34.0"
+  }
+}
