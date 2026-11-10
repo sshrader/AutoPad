@@ -265,3 +265,13 @@ test('airdrops are saved to a file and reloaded', () => {
   assert.equal(A.createAirdrops({ file }).get(MINT).status, 'done');
   assert.equal(a.add(job()), null, 'one airdrop per coin');
 });
+
+test('selling everything leaves the approval number behind, but nothing is sent and the airdrop says so', async () => {
+  const { w, launcher, io } = world({ holders: [BIG, BIG, BIG], held: 0n, approved: 1000n, t: 100000000 });
+  const store = A.createAirdrops({});
+  store.add(job({ createdAt: 0 }));
+  await A.createAirdropper({ store, launcher, io, now: () => w.t, logger: quiet }).process();
+  assert.equal(store.get(MINT).status, 'failed');
+  assert.match(store.get(MINT).reason, /sold or cancelled/);
+  assert.equal(w.sends.length, 0);
+});

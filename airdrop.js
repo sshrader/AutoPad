@@ -90,7 +90,12 @@ function createAirdropper(opts) {
   const minGasSol = Number.isFinite(o.minGasSol) ? o.minGasSol : 0.005;
   const graceMs = Number.isFinite(o.graceMs) ? o.graceMs : 60 * 60 * 1000;   // time allowed for the launch to land before an approval counts as missing
 
-  const live = a => (a && a.delegate === io.payer ? a.delegatedAmount : 0n);
+  // What the keeper can really move: the approval, but never more than the creator still holds. (Selling the tokens leaves the
+  // approval number in place, so the balance is the limit.)
+  const live = a => {
+    if (!a || a.delegate !== io.payer) return 0n;
+    return typeof a.amount === 'bigint' && a.amount < a.delegatedAmount ? a.amount : a.delegatedAmount;
+  };
 
   // One airdrop. Returns nothing; it records its own result.
   async function work(job) {
