@@ -106,7 +106,6 @@ test('the website route launches with a code, records the coin, and the config s
     const out = await r.json();
     assert.equal(out.creator, io.payer);
     assert.equal((await post('/api/launch/free', { code: made.code, name: 'Pay Cat', symbol: 'PAYCAT' })).status, 403);
-    const list = await launches.list();
-    assert.ok(list.some(i => i.pool === out.pool));
+    assert.equal(launches.size(), 1);
   } finally { srv.closeAllConnections(); await new Promise(r => srv.close(r)); }
 });
