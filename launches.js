@@ -61,6 +61,8 @@ function createLaunches(opts) {
     else if (entry.feeMode === 'partner') entry.feeMode = 'creator';
     // A boost bought at launch. It starts only once the payment is seen on-chain (startBoost).
     if (e && Number.isInteger(e.boostLamports) && e.boostLamports > 0 && Number.isInteger(e.boostMin) && e.boostMin > 0) { entry.boostLamports = e.boostLamports; entry.boostMin = e.boostMin; }
+    // The site's own first coin (launched from the admin page) is the flagship: it stays in the Promoted row for free. Only one coin can be.
+    if (e && e.flagship === true && !entries.some(x => x.flagship)) entry.flagship = true;
     if (!valid(entry)) return false;
     const i = entries.findIndex(x => x.pool === entry.pool);
     if (i !== -1) return true; // a retry of the same launch
@@ -194,11 +196,12 @@ function createLaunches(opts) {
   const rateOf = e => (e.boostLamports / 1e9) / (e.boostMin / 60);
   const activeBoosts = () => entries.filter(e => e.boostStartAt && !hidden.has(e.pool) && now() < e.boostStartAt + e.boostMin * 60000)
     .sort((a, b) => rateOf(b) - rateOf(a) || a.boostStartAt - b.boostStartAt);
-  const boosted = () => new Set(activeBoosts().map(e => e.pool));
+  const flagships = () => entries.filter(e => e.flagship && !hidden.has(e.pool));
+  const boosted = () => new Set(activeBoosts().map(e => e.pool).concat(flagships().map(e => e.pool)));
   async function promoted(slots) {
     const hit = caches.get('promoted');
     if (hit && now() - hit.at < listTtlMs) return hit.items;
-    const top = activeBoosts().slice(0, slots || 4);
+    const top = flagships().concat(activeBoosts().slice(0, slots || 4));
     const items = [];
     for (const e of top) {
       const r = await inspect(e.pool);
@@ -207,7 +210,7 @@ function createLaunches(opts) {
       items.push({
         pool: e.pool, name: e.name, symbol: e.symbol, imageUrl: rec ? '/art/' + rec.id + '.' + (rec.ext === 'jpg' ? 'jpg' : 'png') : '',
         raisedSol: r.body.raisedSol, thresholdSol: r.body.thresholdSol, progress: r.body.progress, migrated: r.body.migrated,
-        endsAt: e.boostStartAt + e.boostMin * 60000, perHour: Math.round(rateOf(e) * 1000) / 1000
+        endsAt: e.flagship ? 0 : e.boostStartAt + e.boostMin * 60000, perHour: e.flagship ? 0 : Math.round(rateOf(e) * 1000) / 1000, flagship: Boolean(e.flagship)
       });
     }
     caches.set('promoted', { at: now(), items });

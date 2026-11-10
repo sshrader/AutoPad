@@ -20,7 +20,7 @@
     var t = document.createElement('span'); t.className = 'promo-t';
     var b = document.createElement('b'); b.textContent = c.name;
     var s = document.createElement('i'); s.textContent = '$' + c.symbol;
-    var e = document.createElement('em'); e.textContent = 'Promoted · ' + left(c.endsAt);
+    var e = document.createElement('em'); e.textContent = c.flagship ? 'Flagship coin' : 'Promoted · ' + left(c.endsAt);
     t.appendChild(b); t.appendChild(s); t.appendChild(e); a.appendChild(t);
     return a;
   }
@@ -30,6 +30,8 @@
       grid.textContent = '';
       items.forEach(function (c) { grid.appendChild(card(c)); });
       box.hidden = !items.length;
+      var badge = document.getElementById('promo-badge');
+      if (badge) badge.textContent = items.some(function (c) { return !c.flagship; }) ? 'Paid placement' : 'Flagship coin';
     }).catch(function () { box.hidden = true; });
   }
   load();

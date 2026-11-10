@@ -684,7 +684,7 @@ function createApp(opts) {
             // Once the next step is asked for and the coin is on-chain, the coin counts as launched for good.
             if (action === 'step' && unique && r.status === 200 && r.body && r.body.step !== 'waiting' && typeof body.mint === 'string') unique.confirm(body.mint);
             if (action === 'prepare' && r.status === 200 && launches) {
-              launches.record({ pool: r.body.pool, mint: r.body.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: body.creator, art: body.art, pad: padSlug, preset: '', devBuySol: r.body.firstBuySol, feeMode, partner, partnerPct, boostLamports: r.body.boost ? r.body.boost.lamports : 0, boostMin: r.body.boost ? r.body.boost.minutes : 0 });
+              launches.record({ pool: r.body.pool, mint: r.body.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: body.creator, art: body.art, pad: padSlug, preset: '', devBuySol: r.body.firstBuySol, feeMode, partner, partnerPct, boostLamports: r.body.boost ? r.body.boost.lamports : 0, boostMin: r.body.boost ? r.body.boost.minutes : 0, flagship: Boolean(founder && typeof body.art === 'string' && body.art === founder.id && body.creator === founder.wallet) });
             }
             if (action === 'prepare' && r.status === 200 && r.body.airdrop && airdrops) {
               airdrops.add({ pool: r.body.pool, creator: body.creator, pct: r.body.airdrop.pct, minHolders: r.body.airdrop.holders, afterMinutes: r.body.airdrop.minutes, tokens: r.body.airdrop.tokens, createdAt: Date.now() });

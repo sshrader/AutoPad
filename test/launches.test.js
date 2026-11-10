@@ -409,3 +409,17 @@ test('server: /api/coinstats gives one row per coin with market cap, fees sent, 
   });
   await withServer({}, async base => assert.deepEqual(await (await fetch(base + '/api/coinstats')).json(), { coins: [] }));
 });
+
+test('the flagship coin is always in the Promoted row for free, and only one coin can be the flagship', async () => {
+  const t = 1000000;
+  const onChain = new Set([entry(1).pool, entry(2).pool, entry(3).pool]);
+  const l = createLaunches({ inspect: chain(onChain), now: () => t, logger: quiet, listTtlMs: 0 });
+  l.record(entry(1, { flagship: true }));
+  l.record(entry(2, { flagship: true }));
+  l.record(entry(3, { boostLamports: 100000000, boostMin: 60 }));
+  l.startBoost(entry(3).pool, 'sigA');
+  const rows = await l.promoted();
+  assert.deepEqual(rows.map(x => [x.name, x.flagship]), [['Animal 1', true], ['Animal 3', false]]);
+  assert.equal(l.boosted().has(entry(2).pool), false);
+  assert.equal(l.boosted().has(entry(1).pool), true);
+});
