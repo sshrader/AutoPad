@@ -90,7 +90,7 @@ npm test
 | `LAUNCH_RPC_URL` | RPC address. Mainnet needs a dedicated one. The keeper uses it too. |
 | `LAUNCH_LOOKUP_TABLE` | **Needed for a block-zero dev buy.** See the checklist below. |
 | `DATA_DIR` | Volume mount (for example `/data`) so launches and payouts survive a deploy. |
-| `FOUNDER_WALLET`, `FOUNDER_NAME`, `FOUNDER_SYMBOL`, `FOUNDER_DESCRIPTION` | Optional. Only `FOUNDER_WALLET` can launch the founder coin at `/admin/launch`. |
+| `FLAGSHIP_WALLET` (same as `FOUNDER_WALLET`), `FOUNDER_NAME`, `FOUNDER_SYMBOL`, `FOUNDER_DESCRIPTION` | Optional. Only `FOUNDER_WALLET` can launch the founder coin at `/admin/launch`. |
 | `PRIORITY_FEE_MICROLAMPORTS` | Priority fee per compute unit. Default 50000 on mainnet. |
 | `ORIGINALS_CHECK` | `yes` turns on the one-coin-per-ticker/name/picture rule. |
 | `PUBLIC_URL`, `PAD`, `LAUNCHES_FILE`, `HIDE_POOLS`, `ART_DIR`, `VERIFY_SECRET`, picture-studio keys | Optional; as in the code. |

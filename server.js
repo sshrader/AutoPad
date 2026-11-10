@@ -1034,7 +1034,7 @@ if (require.main === module) {
   // The site's one launchpad, made once from the server's own settings (no signed form, no builder).
   const HOME_SLUG = 'autopad';
   try {
-    const owner = env('FOUNDER_WALLET') || env('PLATFORM_FEE_WALLET') || '11111111111111111111111111111111';
+    const owner = env('FLAGSHIP_WALLET') || env('FOUNDER_WALLET') || env('PLATFORM_FEE_WALLET') || '11111111111111111111111111111111';
     padStore.seed({ slug: HOME_SLUG, name: pad.name, tagline: pad.tagline, accent: '#3a4bff', ownerWallet: owner }, fs.readFileSync(path.join(pad.assetsDir, 'logo.png')));
   } catch (err) { console.error('Could not make the home launchpad: ' + (err && err.message)); }
   if (unique) setInterval(() => unique.prune(), 3600000).unref();
@@ -1056,8 +1056,8 @@ if (require.main === module) {
   }
   // The founder coin: a ready-made picture (founder/logo.png) that only FOUNDER_WALLET can launch.
   let founder = null;
-  // The admin wallet that may launch the official coin: FOUNDER_WALLET, or the platform fee wallet if that is not set.
-  const founderWallet = env('FOUNDER_WALLET') || env('PLATFORM_FEE_WALLET');
+  // The admin wallet that may launch the flagship coin: FLAGSHIP_WALLET (or FOUNDER_WALLET), or the platform fee wallet if neither is set.
+  const founderWallet = env('FLAGSHIP_WALLET') || env('FOUNDER_WALLET') || env('PLATFORM_FEE_WALLET');
   const padLogo = path.join(pad.assetsDir, 'founder-logo.png'); // a pad can bring its own founder picture
   // The stock founder/logo.png is HatchPad's own logo, so only the hatchpad pad may use it.
   const founderFile = fs.existsSync(padLogo) ? padLogo : (pad.id === 'hatchpad' ? path.join(__dirname, 'founder', 'logo.png') : '');
