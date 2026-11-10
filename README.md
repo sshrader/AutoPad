@@ -40,7 +40,7 @@ At launch a creator can pay a flat fee to put the coin in a labeled **Promoted**
 
 ## Auto airdrop (optional, off until you switch it on)
 
-A creator who makes a first buy at launch can set aside part of it for holders: a share (1 to 50%), a holder count (5 to 1000) and a wait (1 to 10080 minutes, up to 7 days). When **both** are true, the keeper splits those tokens between the coin's holders, in proportion to what each holds.
+A creator who makes a first buy at launch can set aside part of it for holders: a share (1 to 50%), a holder count (2 to 1000) and a wait (1 to 10080 minutes, up to 7 days). When **both** are true, the keeper splits those tokens between the coin's holders, in proportion to what each holds.
 
 - **Non-custodial, but not a lock.** The launch transaction ends with a Token-2022 *approve*: the creator's wallet lets the keeper wallet move up to that many tokens out of the creator's own token account. The tokens stay with the creator until the keeper sends them. If the creator sells them or cancels the permission, nothing is sent, and the coin page says so. The page tells creators this before launch.
 - **Who counts as a holder:** a wallet with at least 100,000 of the coin. The creator, the bonding curve, the keeper and the platform wallet are skipped. The count is a signal, not proof of real people: a creator could hold the coin in many wallets.
@@ -51,10 +51,10 @@ A creator who makes a first buy at launch can set aside part of it for holders: 
 
 **Test on devnet before turning it on for real:**
 
-1. Set `AIRDROP=yes` with the keeper wallet funded (devnet), and launch with a first buy and an airdrop of 10%, 5 holders, 10 minutes.
+1. Set `AIRDROP=yes` with the keeper wallet funded (devnet), and launch with a first buy and an airdrop of 10%, 2 holders, 10 minutes.
 2. Check the wallet prompt shows the approve, and the coin page shows "Airdrop scheduled".
-3. Buy the coin from 5 other devnet wallets (each at least 100,000 tokens' worth).
-4. After an hour and the next keeper run (up to 15 minutes), check the 5 wallets received tokens, the creator's balance dropped, and the coin page says "Airdrop sent".
+3. Buy the coin from 2 other devnet wallets (each at least 100,000 tokens' worth).
+4. After an hour and the next keeper run (up to 15 minutes), check the 2 wallets received tokens, the creator's balance dropped, and the coin page says "Airdrop sent".
 5. Launch a second one, then sell the tokens or revoke the approval before it is due, and check it says cancelled and sends nothing.
 
 ## Set up the keeper wallet (once)

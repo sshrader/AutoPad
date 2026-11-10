@@ -40,7 +40,7 @@ test('allocate splits exactly, in proportion, and skips empty holders', () => {
 test('airdrop settings are checked', () => {
   assert.equal(A.parseSettings({}), null);
   assert.deepEqual(A.parseSettings({ airdropPct: 10, airdropHolders: 50, airdropMinutes: 1440 }), { pct: 10, holders: 50, minutes: 1440 });
-  for (const bad of [{ airdropPct: 0 }, { airdropPct: 51 }, { airdropPct: 10, airdropHolders: 2, airdropMinutes: 1440 }, { airdropPct: 10, airdropHolders: 50, airdropMinutes: 0 }, { airdropPct: 10, airdropHolders: 50, airdropMinutes: 20000 }, { airdropPct: 2.5, airdropHolders: 50, airdropMinutes: 1440 }, { airdropPct: 10, airdropHolders: 'x', airdropMinutes: 1440 }]) assert.equal(A.parseSettings(bad), false);
+  for (const bad of [{ airdropPct: 0 }, { airdropPct: 51 }, { airdropPct: 10, airdropHolders: 1, airdropMinutes: 1440 }, { airdropPct: 10, airdropHolders: 50, airdropMinutes: 0 }, { airdropPct: 10, airdropHolders: 50, airdropMinutes: 20000 }, { airdropPct: 2.5, airdropHolders: 50, airdropMinutes: 1440 }, { airdropPct: 10, airdropHolders: 'x', airdropMinutes: 1440 }]) assert.equal(A.parseSettings(bad), false);
 });
 
 test('a launch asks for an airdrop only when it is on, with a first buy; the approval is inside the launch transaction', async () => {

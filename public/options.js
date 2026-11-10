@@ -132,7 +132,7 @@
         if (!(firstBuy > 0)) return { ok: false, error: 'An airdrop comes from your first buy. Enter a "Buy at launch" amount, or turn the airdrop off.' };
         if (m === 'holder') return { ok: false, error: 'Holder-rewards coins cannot have an airdrop. Turn the airdrop off.' };
         if (!Number.isInteger(ap) || ap < 1 || ap > 50) return { ok: false, error: 'The airdrop share must be a whole number from 1 to 50.' };
-        if (!Number.isInteger(ah) || ah < 5 || ah > 1000) return { ok: false, error: 'The airdrop holder count must be a whole number from 5 to 1000.' };
+        if (!Number.isInteger(ah) || ah < 2 || ah > 1000) return { ok: false, error: 'The airdrop holder count must be a whole number from 2 to 1000.' };
         if (!Number.isInteger(at) || at < 1 || at > 10080) return { ok: false, error: 'The airdrop wait must be a whole number of minutes from 1 to 10080 (7 days).' };
         body.airdropPct = ap; body.airdropHolders = ah; body.airdropMinutes = at;
       }

@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const B58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const LIMITS = { minPct: 1, maxPct: 50, minHolders: 5, maxHolders: 1000, minMinutes: 1, maxMinutes: 10080 };
+const LIMITS = { minPct: 1, maxPct: 50, minHolders: 2, maxHolders: 1000, minMinutes: 1, maxMinutes: 10080 };
 
 // Reads the first 165 bytes of a token account (the layout every Token-2022 account starts with).
 function parseTokenAccount(data) {
