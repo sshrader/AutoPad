@@ -1,41 +1,51 @@
-/* AutoPay look. Loaded after app.css, so it replaces the shared graphite-and-orange tokens.
-   The idea is a pay stub: pale steel-blue "slip" ground, white paper for every surface, navy ink, one ultramarine accent,
-   figures in a mono face with tabular digits, dotted leaders like a ledger, and a perforated tear line on the stub. */
+/* AutoPay look: Banknote. Loaded after app.css, so it replaces the shared tokens.
+   A deep teal ground with a fine engraved line pattern, a gold accent, and "paper" surfaces (the stub, the panels, the coin
+   table) that carry their own ink colors. Headlines in Bodoni Moda, smaller headings in Fraunces, text in IBM Plex Sans,
+   figures in IBM Plex Mono with tabular digits, dotted leaders like a ledger, and a perforated tear line on the stub.
+   Dark teal is the default. [data-theme="light"] gives a pale sage ground. */
 :root {
-  --ground: #dde4ea; --paper: #f7f9fb; --soft: #e9eef3; --raise: #ffffff;
-  --text: #0c1424; --muted: #4f5f77; --line: #bcc7d3; --grid: rgba(12,20,36,.055);
-  --accent: #2f3dff; --on-accent: #ffffff; --edge: #2f3dff; --pop: #e3a512; --ok: #0a7f58; --bad: #c42b44;
-  --shadow: 0 1px 0 rgba(12,20,36,.05), 0 18px 30px -22px rgba(12,20,36,.35);
-  --r: 6px; --r-sm: 5px;
-  --font: "Schibsted Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --display: "Schibsted Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --mono: "Spline Sans Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ground: #0a0f1d; --paper: #111a2f; --soft: #17223c; --raise: #1a2644;
-    --text: #e8edf7; --muted: #94a3bf; --line: #2a3957; --grid: rgba(255,255,255,.045);
-    --accent: #7f8bff; --on-accent: #0a0f1d; --edge: #7f8bff; --pop: #f2bd45; --ok: #3ddc9c; --bad: #ff7d92;
-    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 18px 30px -22px rgba(0,0,0,.8);
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --ground: #0a0f1d; --paper: #111a2f; --soft: #17223c; --raise: #1a2644;
-  --text: #e8edf7; --muted: #94a3bf; --line: #2a3957; --grid: rgba(255,255,255,.045);
-  --accent: #7f8bff; --on-accent: #0a0f1d; --edge: #7f8bff; --pop: #f2bd45; --ok: #3ddc9c; --bad: #ff7d92;
-  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 18px 30px -22px rgba(0,0,0,.8);
+  --ground: #0c2b29; --paper: #123733; --soft: #17423e; --raise: #14403c;
+  --text: #eef2ea; --muted: #b3c6bb; --line: #2e5551; --grid: rgba(214,178,84,.09);
+  --accent: #d6b254; --on-accent: #0c2b29; --edge: #d6b254; --pop: #e3bd5a; --ok: #46d6a0; --bad: #ff8b8b;
+  --btn-bg: #d6b254; --btn-fg: #0c2b29;
+  --shadow: 0 1px 0 rgba(0,0,0,.25), 0 24px 40px -26px rgba(0,0,0,.7);
+  --r: 4px; --r-sm: 3px;
+  --font: "IBM Plex Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
+  --display-hi: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   color-scheme: dark;
 }
-body { background-image: radial-gradient(var(--grid) 1px, transparent 1px); background-size: 24px 24px; font-size: 16px; }
+:root[data-theme="light"] {
+  --ground: #e4ebe4; --paper: #f4f7f2; --soft: #e8eee7; --raise: #fbfcfa;
+  --text: #0b1f1e; --muted: #3d5552; --line: #b6c4bc; --grid: rgba(11,31,30,.06);
+  --accent: #7a5f12; --on-accent: #ffffff; --edge: #b99a3f; --pop: #b99a3f; --ok: #1a6b4a; --bad: #b3261e;
+  --btn-bg: #d6b254; --btn-fg: #0c2b29;
+  --shadow: 0 1px 0 rgba(11,31,30,.06), 0 18px 30px -22px rgba(11,31,30,.35);
+  color-scheme: light;
+}
+/* Paper: the stub, panels, steps, option cards, tables and promo cards are always paper with dark ink, on either ground.
+   Everything inside them reads these tokens, so nothing else needs its own colors. */
+.panel, .stub, .apsteps, .optcard, .tablewrap, .group, .opt, .promo-card, .coinprev, .sign, .done, .aipanel, .official, .padcard, .mock {
+  --paper: #e9efe8; --soft: #dfe7df; --raise: #f4f7f2;
+  --text: #0b1f1e; --muted: #3d5552; --line: #b6c4bc;
+  --accent: #7a5f12; --on-accent: #ffffff; --edge: #b99a3f; --ok: #1a6b4a; --bad: #b3261e;
+  --shadow: 0 1px 0 rgba(11,31,30,.06), 0 24px 40px -28px rgba(0,0,0,.55);
+  color: var(--text);
+}
+body {
+  background-color: var(--ground);
+  background-image: repeating-radial-gradient(circle at 12% -10%, var(--grid) 0 1px, transparent 1px 9px), repeating-radial-gradient(circle at 92% 110%, var(--grid) 0 1px, transparent 1px 9px);
+  background-size: auto; background-attachment: fixed; font-size: 16px;
+}
 .wrap { gap: 64px; max-width: 1080px; }
-h1, h2, h3 { font-family: var(--display); letter-spacing: -.02em; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: -.01em; }
+h1, h2 { font-family: var(--display-hi); font-weight: 800; letter-spacing: -.015em; }
 .mono, .tick, .coinprev .tick, .hint.mono { font-family: var(--mono); }
 
 /* Header */
-.top { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
-.brand { font-weight: 800; letter-spacing: -.03em; font-size: 1.3rem; }
+.top { padding-bottom: 14px; border-bottom: 3px double color-mix(in srgb, var(--accent) 55%, transparent); }
+.brand { font-family: var(--display); font-weight: 800; letter-spacing: -.01em; font-size: 1.6rem; }
 .nav a { font-weight: 500; }
 .nav a:hover { color: var(--accent); }
 .chip-net { border-radius: 4px; font-family: var(--mono); font-size: .75rem; background: var(--raise); }
@@ -46,8 +56,8 @@ input[type="text"], input[type="number"], textarea, select { background: var(--r
 input:focus, textarea:focus, select:focus { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); outline-offset: 0; }
 .btn, button.btn { border-radius: var(--r-sm); background: var(--raise); border: 1px solid var(--line); color: var(--text); font-weight: 600; box-shadow: none; }
 .btn:hover:not(:disabled) { border-color: var(--accent); background: var(--raise); color: var(--accent); }
-.btn.go { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.btn.go:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); filter: brightness(1.1); border-color: var(--accent); }
+.btn.go { background: var(--btn-bg); border-color: var(--btn-bg); color: var(--btn-fg); }
+.btn.go:hover:not(:disabled) { background: var(--btn-bg); color: var(--btn-fg); filter: brightness(1.08); border-color: var(--btn-bg); }
 .btn.go:focus-visible { outline-color: var(--text); }
 .drop { border-radius: var(--r); border: 1.5px dashed var(--line); background: var(--paper); }
 .badge { border-radius: 4px; font-family: var(--mono); font-size: .75rem; }
@@ -55,7 +65,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 
 /* Hero: the headline, and next to it the stub that shows the payouts happening */
 .aphero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 40px 60px; align-items: center; padding-top: 22px; }
-.aphero h1 { font-size: clamp(2.7rem, 6.4vw, 4.9rem); line-height: .96; font-weight: 800; letter-spacing: -.045em; margin: 0; text-wrap: balance; }
+.aphero h1 { font-size: clamp(2.6rem, 6vw, 4.4rem); line-height: 1.0; font-weight: 800; letter-spacing: -.02em; margin: 0; text-wrap: balance; color: var(--text); }
 .aphero .lede { max-width: 36ch; font-size: 1.15rem; color: var(--muted); margin: 20px 0 0; }
 .aphero .ctas { margin-top: 26px; }
 @media (max-width: 860px) { .aphero { grid-template-columns: minmax(0, 1fr); } }
@@ -70,7 +80,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 .stub[data-on="yes"] .stub-state::before { background: var(--ok); }
 .stub-big { margin: 16px 0 4px; display: grid; gap: 2px; }
 .stub-l { font-size: .95rem; color: var(--muted); }
-.stub-n { display: block; font: 500 clamp(3rem, 8vw, 4.6rem)/1 var(--mono); letter-spacing: -.04em; font-variant-numeric: tabular-nums; color: var(--text); }
+.stub-n { display: block; font: 800 clamp(3rem, 8vw, 4.6rem)/1.05 var(--display-hi); letter-spacing: -.01em; font-variant-numeric: lining-nums tabular-nums; color: var(--text); }
 .stub[data-on="no"] .stub-n { color: var(--muted); }
 .ledger { margin: 18px 0 0; display: grid; gap: 7px; }
 .ledger > div { display: flex; align-items: baseline; gap: 8px; font-size: .95rem; }
@@ -78,7 +88,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 .ledger .lead { flex: 1; min-width: 12px; border-bottom: 1.5px dotted var(--line); transform: translateY(-3px); }
 .ledger dd { margin: 0; flex: none; font: 500 .95rem/1.3 var(--mono); font-variant-numeric: tabular-nums; }
 .tear { position: relative; margin: 20px -24px 16px; border-top: 2px dashed var(--line); }
-.tear::before, .tear::after { content: ""; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%; background: var(--ground); border: 1px solid var(--line); }
+.tear::before, .tear::after { content: ""; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%; background: var(--ground); }
 .tear::before { left: -12px; clip-path: inset(0 0 0 50%); }
 .tear::after { right: -12px; clip-path: inset(0 50% 0 0); }
 .stub-h2 { margin: 0 0 8px; font: 700 .95rem/1.2 var(--display); letter-spacing: -.01em; }
