@@ -80,6 +80,11 @@ function fakeLoad(state) {
     async getSignatureStatuses(sigs) { return { value: sigs.map(s => state.statuses.get(s) || null) }; }
     async getTransaction(sig) { return state.txs && state.txs.get(sig) || null; }
     async getTokenAccountBalance(pk) { const v = state.tokens.get(pk.toBase58()); if (v === undefined) throw new Error('could not find account'); return { value: { amount: v } }; }
+    async getProgramAccounts(program, o) {
+      const f = o && o.filters && o.filters[0] && o.filters[0].memcmp;
+      const want = f ? new PublicKey(f.bytes).toBuffer() : null;
+      return (state.tokenAccts || []).filter(a => !want || a.data.subarray(0, 32).equals(want)).map(a => ({ pubkey: new PublicKey(a.pubkey), account: { data: a.data.subarray(0, 165) } }));
+    }
     async getMinimumBalanceForRentExemption() { return 1000000; }
   }
   const ComputeBudgetProgram = {
@@ -98,6 +103,16 @@ function fakeLoad(state) {
     const vec = Buffer.concat([Buffer.from([holders.length, 0, 0, 0])].concat(holders.map(h => Buffer.concat([new PublicKey(h.address).toBuffer(), Buffer.from([h.bps & 255, h.bps >> 8])]))));
     const data = Buffer.concat([disc, Buffer.from([255, 1, 1]), new PublicKey(mint).toBuffer(), Buffer.alloc(32, 9), Buffer.from([1]), vec]);
     state.accounts.set(B.sharingConfigOf(mint).toBase58(), { data, owner: pump.PUMP_FEES });
+  };
+  // A Token-2022 account: mint, owner, amount, and an optional approved delegate with its allowance.
+  state.putTokenAccount = (pubkey, o) => {
+    const d = Buffer.alloc(170);
+    new PublicKey(o.mint).toBuffer().copy(d, 0); new PublicKey(o.owner).toBuffer().copy(d, 32);
+    d.writeBigUInt64LE(BigInt(o.amount), 64);
+    if (o.delegate) { d.writeUInt32LE(1, 72); new PublicKey(o.delegate).toBuffer().copy(d, 76); d.writeBigUInt64LE(BigInt(o.delegated || 0), 121); }
+    d[108] = 1;
+    state.tokenAccts = (state.tokenAccts || []).filter(a => a.pubkey !== pubkey).concat([{ pubkey, data: d }]);
+    state.accounts.set(pubkey, { data: d, owner: pump.TOKEN_2022 });
   };
   return async () => ({ web3 });
 }

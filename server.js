@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { createUnique, imageHash } = require('./unique');
 const { createKeeper, web3Io } = require('./keeper');
+const { createAirdrops, createAirdropper } = require('./airdrop');
 const { createBoost } = require('./boost');
 const { createLauncher, metadataFor, cleanText } = require('./launch');
 const { createLaunches } = require('./launches');
@@ -84,6 +85,8 @@ function createApp(opts) {
   const unique = opts.unique || null;
   // AutoPay: the keeper pays out waiting creator fees on a schedule. These routes only report what it has done.
   const keeper = opts.keeper || null;
+  // Auto airdrop: the list of scheduled airdrops (saved to a file) and the chain reads for the coin page.
+  const airdrops = opts.airdrops || null;
   // Paid boosts to the Promoted row: the prices, and how many slots there are.
   const boostCfg = opts.boost || createBoost({});
   // One site with one launchpad: its slug. The pad builder is off when this is set.
@@ -264,6 +267,17 @@ function createApp(opts) {
       if (!keeper) return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(pathname === '/api/payouts' ? { payouts: [] } : { enabled: false }), noStore);
       const body = pathname === '/api/payouts' ? { payouts: keeper.recent(url.searchParams.get('limit'), (url.searchParams.get('pool') || '').slice(0, 44)) } : Object.assign({ serverNow: Date.now() }, keeper.status());
       return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(body), noStore);
+    }
+
+    // A coin's scheduled airdrop: its settings and progress, plus whether the creator's approval is still in place.
+    if (pathname === '/api/airdrop' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' });
+      const pool = (url.searchParams.get('pool') || '').slice(0, 44);
+      const job = airdrops && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(pool) ? airdrops.get(pool) : null;
+      if (!job) return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify({ airdrop: null }), noStore);
+      const out = { pct: job.pct, minHolders: job.minHolders, afterHours: job.afterHours, dueAt: job.createdAt + job.afterHours * 3600000, status: job.status, reason: job.reason || '', holders: job.holders || 0, recipients: job.recipients || 0, tokens: job.tokens, delivered: job.delivered || '', serverNow: Date.now() };
+      const live = job.status === 'scheduled' || job.status === 'sending' ? launcher.approval(job.pool, job.creator).catch(() => null) : Promise.resolve(null);
+      return live.then(a => { if (a) { out.held = a.held; out.approved = a.approved; } send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify({ airdrop: out }), noStore); });
     }
 
     // Is this ticker or name still free? A quick yes or no for the home page's live check. It reads the list; it holds nothing.
@@ -585,6 +599,9 @@ function createApp(opts) {
             if (action === 'prepare' && r.status === 200 && launches) {
               launches.record({ pool: r.body.pool, mint: r.body.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: body.creator, art: body.art, pad: padSlug, preset: '', devBuySol: r.body.firstBuySol, feeMode, partner, partnerPct, boostLamports: r.body.boost ? r.body.boost.lamports : 0, boostMin: r.body.boost ? r.body.boost.minutes : 0 });
             }
+            if (action === 'prepare' && r.status === 200 && r.body.airdrop && airdrops) {
+              airdrops.add({ pool: r.body.pool, creator: body.creator, pct: r.body.airdrop.pct, minHolders: r.body.airdrop.holders, afterHours: r.body.airdrop.hours, tokens: r.body.airdrop.tokens, createdAt: Date.now() });
+            }
             if (action === 'prepare' && r.status === 200 && typeof body.art === 'string') {
               // Links are saved, then the picture is kept for good and its links are frozen.
               if (Object.keys(links).length) art.setLinks(body.art, links, Boolean(founder && body.art === founder.id));
@@ -895,8 +912,18 @@ if (require.main === module) {
   });
   const cluster = env('LAUNCH_CLUSTER') || 'devnet';
   const boost = createBoost({ mult: Number(env('BOOST_PRICE_MULT')) || undefined });
+  // The keeper's wallet is read first, because the launcher needs its public address for airdrop approvals.
+  let keeperIo = null;
+  if (env('KEEPER_SECRET_KEY')) {
+    try {
+      const rpc = process.env.LAUNCH_RPC_URL || (cluster === 'devnet' ? 'https://api.devnet.solana.com' : '');
+      keeperIo = web3Io({ web3: require('@solana/web3.js'), secret: env('KEEPER_SECRET_KEY'), rpcUrl: rpc });
+    } catch (err) { console.error('Auto-claim is off: ' + (err && err.message)); }
+  }
   const launcher = createLauncher({
     boost,
+    keeperWallet: keeperIo ? keeperIo.payer : undefined,
+    airdrop: env('AIRDROP') === 'yes',
     cluster,
     allowMainnet: env('MAINNET_ENABLED') === 'yes',
     platformWallet: env('PLATFORM_FEE_WALLET') || pad.fees.wallet,
@@ -954,20 +981,25 @@ if (require.main === module) {
     if (id) founder = Object.assign({ id, ext: 'png', wallet: founderWallet, buf: buf }, text);
   }
   // The keeper (auto-claim) needs a small gas wallet. Its key comes only from KEEPER_SECRET_KEY in the host's settings.
-  let keeper = null;
-  if (env('KEEPER_SECRET_KEY')) {
+  let keeper = null, airdrops = null;
+  if (keeperIo) {
     try {
-      const rpc = process.env.LAUNCH_RPC_URL || (cluster === 'devnet' ? 'https://api.devnet.solana.com' : '');
-      const io = web3Io({ web3: require('@solana/web3.js'), secret: env('KEEPER_SECRET_KEY'), rpcUrl: rpc });
+      const io = keeperIo;
+      let airdropper = null;
+      if (env('AIRDROP') === 'yes') {
+        airdrops = createAirdrops({ file: dataDir ? path.join(dataDir, cluster === 'devnet' ? 'airdrops.json' : 'airdrops.' + cluster + '.json') : '' });
+        airdropper = createAirdropper({ store: airdrops, launcher, io, platformWallet: env('PLATFORM_FEE_WALLET') || pad.fees.wallet });
+        console.log('Auto airdrop on: the keeper sends scheduled airdrops from creators who approved it.');
+      }
       keeper = createKeeper({
-        launcher, launches, io, file: dataDir ? path.join(dataDir, cluster === 'devnet' ? 'payouts.json' : 'payouts.' + cluster + '.json') : '',
+        launcher, launches, io, airdropper, file: dataDir ? path.join(dataDir, cluster === 'devnet' ? 'payouts.json' : 'payouts.' + cluster + '.json') : '',
         minSol: Number(env('AUTOCLAIM_MIN_SOL')) || undefined, everyMs: (Number(env('AUTOCLAIM_EVERY_MIN')) || 0) * 60000 || undefined
       });
       keeper.start();
       console.log('Auto-claim on: keeper ' + io.payer + ', pays out coins with at least ' + keeper.status().minSol + ' SOL waiting, every ' + keeper.status().everyMin + ' minutes.');
     } catch (err) { console.error('Auto-claim is off: ' + (err && err.message)); }
   } else console.log('Auto-claim is off: set KEEPER_SECRET_KEY to turn it on.');
-  const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, boost, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });
+  const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, airdrops, boost, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });
   server.listen(PORT, '0.0.0.0', () => {
     console.log(pad.name + ' listening on port ' + PORT + (art.info().enabled ? ' (picture studio on, ' + art.provider + ')' : ' (picture studio OFF: ' + art.reason + '; provider ' + art.provider + ')') + (artDir ? ' (pictures saved in ' + artDir + ')' : ' (pictures in memory only: no volume)') +
       (launcher.info().enabled ? ' (' + cluster + ' launch on)' : ' (' + cluster + ' launch off: set PLATFORM_FEE_WALLET)') + (launchesFile ? ' (launch list saved in ' + launchesFile + ')' : ' (launch list in memory only)'));

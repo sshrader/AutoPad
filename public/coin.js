@@ -141,6 +141,18 @@
     const btn = add(row, 'button', 'Pay out now', 'btn'); btn.type = 'button'; btn.hidden = true;
     const fix = add(row, 'button', 'Finish setup', 'btn'); fix.type = 'button'; fix.hidden = true;
     const status = add(parent, 'p', '', 'hint'); status.setAttribute('role', 'status');
+    const ad = add(parent, 'p', '', 'hint ad-line'); ad.hidden = true;
+    fetch('/api/airdrop?pool=' + encodeURIComponent(c.pool), { headers: { Accept: 'application/json' }, cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
+      const a = d && d.airdrop;
+      if (!a) return;
+      const hrs = Math.max(0, Math.ceil((a.dueAt - (a.serverNow || Date.now())) / 3600000));
+      let t;
+      if (a.status === 'done') t = 'Airdrop sent: ' + a.recipients + ' holders received ' + (Number(a.delivered) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' tokens.';
+      else if (a.status === 'failed') t = 'Airdrop not delivered. ' + (a.reason || '');
+      else if (a.approved !== undefined && a.approved === '0') t = 'Airdrop cancelled: the creator no longer allows it, so nothing will be sent.';
+      else t = 'Airdrop scheduled: ' + a.pct + '% of the creator\'s first buy goes to holders once ' + a.minHolders + ' wallets hold this coin' + (hrs > 0 ? ' and in about ' + hrs + ' h' : '') + (a.holders ? ' (' + a.holders + ' counted so far)' : '') + '. The tokens stay in the creator\'s wallet until then, so this is not a lock.';
+      ad.textContent = t; ad.hidden = false;
+    }).catch(() => {});
     if (window.APStub && !c.holderRewards) window.APStub.coin(parent, c); // the automatic payout countdown and this coin's payouts
     let info = null, busy = false;
     const WHY = {

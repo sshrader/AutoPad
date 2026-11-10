@@ -57,6 +57,7 @@ function createKeeper(opts) {
   const maxChecks = Number.isInteger(o.maxChecks) && o.maxChecks > 0 ? o.maxChecks : 100; // coins looked at per run
   const minGasSol = Number.isFinite(o.minGasSol) ? o.minGasSol : 0.005;                 // stop paying below this keeper balance
   const keep = Number.isInteger(o.keep) && o.keep > 0 ? o.keep : 300;
+  const airdropper = o.airdropper || null;                                          // optional: sends scheduled airdrops each cycle
   const enabled = Boolean(io && launcher && launches && launcher.info().enabled);
 
   let payouts = [];
@@ -110,6 +111,7 @@ function createKeeper(opts) {
         }
       }
       cursor += looked;
+      if (airdropper) { try { await airdropper.process(); } catch (e) { logger.error('Airdrop run failed: ' + (e && e.message)); } }
     } catch (e) {
       stats.errors++; lastError = String(e && e.message || 'run failed').slice(0, 120);
       logger.error('Keeper run failed: ' + (e && e.stack ? e.stack : lastError));

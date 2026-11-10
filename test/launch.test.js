@@ -39,7 +39,7 @@ test('the fee split is validated, and launching is off without a platform wallet
   assert.throws(() => createLauncher({ platformWallet: PLATFORM, platformSharePct: 80 }), /PLATFORM_SHARE_PCT/);
   assert.throws(() => createLauncher({ platformWallet: PLATFORM, platformSharePct: 2.5 }), /PLATFORM_SHARE_PCT/);
   const on = createLauncher({ platformWallet: PLATFORM });
-  assert.deepEqual(on.info(), { enabled: true, cluster: 'devnet', protocol: 'pump.fun', atomic: false, platformPct: 20, holderLaunchFeeSol: 0.05, platformWallet: PLATFORM, split: { creatorPct: 80, platformPct: 20 } });
+  assert.deepEqual(on.info(), { enabled: true, cluster: 'devnet', protocol: 'pump.fun', atomic: false, platformPct: 20, holderLaunchFeeSol: 0.05, airdrop: false, platformWallet: PLATFORM, split: { creatorPct: 80, platformPct: 20 } });
   assert.equal(createLauncher({ platformWallet: PLATFORM, platformSharePct: '30' }).info().split.creatorPct, 70);
   assert.equal(createLauncher({}).info().enabled, false);
 });
@@ -381,7 +381,7 @@ test('server: launch routes work, and POST is allowed nowhere else', async () =>
   const { launcher, st } = make();
   await withServer({ feed, launcher }, async base => {
     const cfg = await (await fetch(base + '/api/launch/config')).json();
-    assert.deepEqual(cfg, { enabled: true, cluster: 'devnet', protocol: 'pump.fun', atomic: false, platformPct: 20, holderLaunchFeeSol: 0.05, holderRewards: false, maxPartnerPct: 30, platformWallet: PLATFORM, split: { creatorPct: 80, platformPct: 20 } });
+    assert.deepEqual(cfg, { enabled: true, cluster: 'devnet', protocol: 'pump.fun', atomic: false, platformPct: 20, holderLaunchFeeSol: 0.05, airdrop: false, holderRewards: false, maxPartnerPct: 30, platformWallet: PLATFORM, split: { creatorPct: 80, platformPct: 20 } });
     const post = (p, body) => fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     const ok = await post('/api/launch/prepare', JSON.stringify(good));
     assert.equal(ok.status, 200);

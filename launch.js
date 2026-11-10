@@ -8,7 +8,8 @@
 //
 // web3.js is loaded only when someone launches, so a problem with it can never stop the website from starting.
 
-const { createBoost } = require('./boost');
+const { createBoost } = require('./boost')
+const airdropLib = require('./airdrop');
 const pump = require('./pump.js');
 
 const SYMBOL_RE = /^[A-Za-z0-9]{1,10}$/;
@@ -43,7 +44,7 @@ async function loadReal() {
   return { web3: await import('@solana/web3.js') };
 }
 
-const CU = { create: 400000, split: 250000, buy: 300000, distribute: 300000 };
+const CU = { create: 400000, split: 250000, buy: 300000, distribute: 300000, approve: 30000, airdrop: 250000 };
 
 function createLauncher(opts) {
   const o = opts || {};
@@ -70,13 +71,16 @@ function createLauncher(opts) {
   // Optional paid boost to the home page's Promoted row. The fee is paid to the platform wallet inside the launch transaction.
   const boostCfg = o.boost || createBoost({});
   const enabled = Boolean(platformWallet);
+  // Auto airdrop: the keeper wallet's public address, and a switch. Without both, launches cannot ask for an airdrop.
+  const keeperWallet = typeof o.keeperWallet === 'string' && B58_RE.test(o.keeperWallet) ? o.keeperWallet : '';
+  const airdropOn = Boolean(keeperWallet && o.airdrop === true);
   // A shared address lookup table (made once by devnet/12-make-lookup-table.mjs) lets the coin's creation and the
   // creator's first buy fit in ONE transaction, so nobody can buy in between. Without it a launch is up to three steps.
   const lookupTable = typeof o.lookupTable === 'string' && B58_RE.test(o.lookupTable) ? o.lookupTable : '';
   let tableCache = null;
 
   function info() {
-    const out = { enabled, cluster, protocol: 'pump.fun', atomic: Boolean(lookupTable), platformPct, holderLaunchFeeSol: holderFeeSol };
+    const out = { enabled, cluster, protocol: 'pump.fun', atomic: Boolean(lookupTable), platformPct, holderLaunchFeeSol: holderFeeSol, airdrop: airdropOn };
     if (enabled) { out.split = { creatorPct: 100 - platformPct, platformPct }; out.platformWallet = platformWallet; }
     return out;
   }
@@ -210,6 +214,10 @@ function createLauncher(opts) {
       boost = boostCfg.quote(b.boostSol);
       if (!boost) return { status: 400, body: { error: 'bad_boost' } };
     }
+    const airdrop = airdropLib.parseSettings(b);
+    if (airdrop === false) return { status: 400, body: { error: 'bad_airdrop' } };
+    if (airdrop && !airdropOn) return { status: 400, body: { error: 'airdrop_unavailable' } };
+    if (airdrop && firstBuySol <= 0) return { status: 400, body: { error: 'airdrop_needs_buy' } };
     const base = String((ctx && ctx.baseUrl) || '').replace(/\/+$/, '');
     const uri = base + '/meta.json?n=' + encodeURIComponent(name) + '&s=' + encodeURIComponent(symbol) + (artId ? '&i=' + artId : '');
     if (!/^https?:\/\//.test(base) || uri.length > MAX_URI) return { status: 400, body: { error: 'uri_too_long' } };
@@ -223,6 +231,7 @@ function createLauncher(opts) {
       const holder = Boolean(ctx && ctx.pad && ctx.pad.holderRewards);
       if (holder && ctx.pad.pair) return { status: 400, body: { error: 'holder_pair_unsupported' } };
       if (holder && firstBuySol > 0) return { status: 400, body: { error: 'holder_buy_not_ready' } };
+      if (airdrop && (holder || (ctx && ctx.pad && ctx.pad.pair))) return { status: 400, body: { error: 'airdrop_unavailable' } };
       // A pad with a pool pair other than SOL creates its coins against that token. The first buy for those is not built yet.
       let quote = null;
       if (ctx && ctx.pad && ctx.pad.pair) {
@@ -239,6 +248,7 @@ function createLauncher(opts) {
       if (holder && holderFeeSol > 0) fees.push(c.B.transferSol({ from: creatorPk, to: platformWallet, lamports: Math.round(holderFeeSol * 1e9) }));
       if (boost && b.creator !== platformWallet) fees.push(c.B.transferSol({ from: creatorPk, to: platformWallet, lamports: boost.lamports }));
       let ixs = budget(c, CU.create).concat([ix], fees);
+      let airdropOut = null;
       if (atomic && firstBuySol > 0) {
         // The coin does not exist yet, so the buy is priced against a fresh curve from pump.fun's global settings.
         const glob = await readGlobal(c);
@@ -246,10 +256,18 @@ function createLauncher(opts) {
           virtual_token_reserves: glob.initial_virtual_token_reserves, virtual_quote_reserves: glob.initial_virtual_sol_reserves,
           real_token_reserves: glob.initial_real_token_reserves
         };
-        ixs = budget(c, CU.create + CU.buy).concat([ix], fees, buyInstructions(c, creatorPk, mint, fresh, firstBuySol, 1000, glob));
+        const ap = airdrop ? approveInstructions(c, creatorPk, mint, fresh, firstBuySol, glob, airdrop) : null;
+        if (ap) airdropOut = { pct: airdrop.pct, holders: airdrop.holders, hours: airdrop.hours, tokens: ap.tokens.toString() };
+        ixs = budget(c, CU.create + CU.buy + (ap ? CU.approve : 0)).concat([ix], fees, buyInstructions(c, creatorPk, mint, fresh, firstBuySol, 1000, glob), ap ? ap.ixs : []);
+      } else if (airdrop) {
+        // No lookup table: the first buy is its own step later, and the approval goes in that step's transaction.
+        const glob = await readGlobal(c);
+        const fresh = { virtual_token_reserves: glob.initial_virtual_token_reserves, virtual_quote_reserves: glob.initial_virtual_sol_reserves, real_token_reserves: glob.initial_real_token_reserves };
+        const ap = approveInstructions(c, creatorPk, mint, fresh, firstBuySol, glob, airdrop);
+        if (ap) airdropOut = { pct: airdrop.pct, holders: airdrop.holders, hours: airdrop.hours, tokens: ap.tokens.toString() };
       }
       const transaction = await toTx(c, ixs, creatorPk, [mintKp], table);
-      return { status: 200, body: { transaction, mint, pool: mint, curve: c.B.bondingCurveOf(mintKp.publicKey).toBase58(), firstBuySol, atomic, pair: quote ? quote.mint.toBase58() : '', holderRewards: holder, launchFeeSol: holder ? holderFeeSol : 0, boost: boost ? { sol: boost.sol, minutes: boost.minutes, lamports: boost.lamports } : null, split: holder ? { creatorPct: 0, ownerPct: 0, platformPct: 0 } : splitFor(ctx && ctx.pad), cluster } };
+      return { status: 200, body: { transaction, mint, pool: mint, curve: c.B.bondingCurveOf(mintKp.publicKey).toBase58(), firstBuySol, atomic, pair: quote ? quote.mint.toBase58() : '', holderRewards: holder, launchFeeSol: holder ? holderFeeSol : 0, boost: boost ? { sol: boost.sol, minutes: boost.minutes, lamports: boost.lamports } : null, airdrop: airdropOut, split: holder ? { creatorPct: 0, ownerPct: 0, platformPct: 0 } : splitFor(ctx && ctx.pad), cluster } };
     } catch (err) {
       logger.error('Launch prepare failed: ' + (err && err.stack ? err.stack : 'unknown error'));
       return { status: 502, body: { error: 'prepare_failed' } };
@@ -294,7 +312,8 @@ function createLauncher(opts) {
           held = BigInt(bal && bal.value ? bal.value.amount : 0);
         } catch (e) { held = 0n; }
         if (held === 0n && !curve.complete) {
-          const t = await buildBuy(c, creatorPk, b.mint, curve, firstBuySol, 1000);
+          const ad = airdropLib.parseSettings(b);
+          const t = await buildBuy(c, creatorPk, b.mint, curve, firstBuySol, 1000, ad && airdropOn ? ad : null);
           return { status: 200, body: { step: 'buy', transaction: t, cluster } };
         }
       }
@@ -317,9 +336,54 @@ function createLauncher(opts) {
     ];
   }
 
-  async function buildBuy(c, buyerPk, mint, curve, sol, slippageBps) {
+  async function buildBuy(c, buyerPk, mint, curve, sol, slippageBps, airdrop) {
     const glob = await readGlobal(c);
-    return toTx(c, budget(c, CU.buy).concat(buyInstructions(c, buyerPk, mint, curve, sol, slippageBps, glob)), buyerPk);
+    const ap = airdrop ? approveInstructions(c, buyerPk, mint, curve, sol, glob, airdrop) : null;
+    return toTx(c, budget(c, CU.buy + (ap ? CU.approve : 0)).concat(buyInstructions(c, buyerPk, mint, curve, sol, slippageBps, glob), ap ? ap.ixs : []), buyerPk);
+  }
+
+  // The approval for an airdrop: lets the keeper wallet move `pct` of the tokens the first buy is sure to deliver (the buy's
+  // minimum, 10% slippage allowed) out of the creator's token account. Returns null if the quote is empty.
+  function approveInstructions(c, creatorPk, mint, curve, sol, glob, airdrop) {
+    const min = pump.minTokensForBuy(curve, BigInt(Math.floor(sol * 1e9)), 1000, pump.feeGuessBps(glob));
+    const tokens = (min * BigInt(airdrop.pct)) / 100n;
+    if (tokens <= 0n) return null;
+    const source = c.B.ata(creatorPk, mint, pump.TOKEN_2022);
+    return { tokens, ixs: [c.B.approveChecked({ source, mint, delegate: keeperWallet, owner: creatorPk, amount: tokens, decimals: 6 })] };
+  }
+
+  // Every Token-2022 account of a coin, read for the airdrop: who holds it, how much, and who may move it.
+  async function airdropInfo(mint, creator) {
+    const c = await chain();
+    const list = await c.connection.getProgramAccounts(new c.web3.PublicKey(pump.TOKEN_2022), {
+      filters: [{ memcmp: { offset: 0, bytes: mint } }], dataSlice: { offset: 0, length: 165 }
+    });
+    const accounts = [];
+    for (const it of list || []) {
+      const t = airdropLib.parseTokenAccount(it.account.data);
+      if (!t || t.state === 2) continue;
+      accounts.push({ account: it.pubkey.toBase58(), owner: new c.web3.PublicKey(t.owner).toBase58(), amount: t.amount, delegate: t.delegate ? new c.web3.PublicKey(t.delegate).toBase58() : null, delegatedAmount: t.delegatedAmount });
+    }
+    return { curve: c.B.bondingCurveOf(mint).toBase58(), accounts, creator };
+  }
+
+  // Cheap read for the coin page: is the creator's approval still in place, and how many tokens does the creator hold.
+  async function approval(mint, creator) {
+    const c = await chain();
+    const acc = await c.connection.getAccountInfo(c.B.ata(new c.web3.PublicKey(creator), mint, pump.TOKEN_2022));
+    const t = acc ? airdropLib.parseTokenAccount(acc.data) : null;
+    if (!t) return { held: '0', approved: '0' };
+    const del = t.delegate ? new c.web3.PublicKey(t.delegate).toBase58() : '';
+    return { held: t.amount.toString(), approved: del && del === keeperWallet ? t.delegatedAmount.toString() : '0' };
+  }
+
+  // Unsigned transactions that send tokens from the creator's account to holders. The keeper is the fee payer and signs as the
+  // approved delegate. Returns one transaction (callers pass at most one batch).
+  async function airdropTransactions(input) {
+    const c = await chain();
+    const keeperPk = new c.web3.PublicKey(input.keeper), mintPk = new c.web3.PublicKey(input.mint);
+    const ixs = budget(c, CU.airdrop).concat(input.recipients.map(r => c.B.transferChecked({ source: input.source, mint: mintPk, destination: r.to, authority: keeperPk, amount: BigInt(r.amount), decimals: 6 })));
+    return [await toTx(c, ixs, keeperPk, null, null)];
   }
 
   // Every address the launch transactions share between launches: found by building them for two throwaway coins
@@ -719,7 +783,7 @@ function createLauncher(opts) {
     }
   }
 
-  return { info, lookupAddresses, prepare, verifyBoost, step, status, pool, inspect, buy, fees, distribute, partnerFees, activity, pairs, pairPrices };
+  return { info, lookupAddresses, airdropInfo, airdropTransactions, approval, prepare, verifyBoost, step, status, pool, inspect, buy, fees, distribute, partnerFees, activity, pairs, pairPrices };
 }
 
 // Metadata for the token, read by wallets and explorers. Built from the link and the stored animal, so the

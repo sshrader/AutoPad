@@ -38,6 +38,25 @@ At launch a creator can pay a flat fee to put the coin in a labeled **Promoted**
 - **Payment is verified on-chain.** After the launch transaction confirms, the page sends its signature to `POST /api/launch/boost`. The server reads that transaction and only starts the boost if the creator paid, the new coin is in it, and the platform wallet's balance rose by the fee. One signature can start one boost. Fees are not refunded.
 - Routes: `GET /api/promoted`, `GET /api/boost/config`, `POST /api/launch/boost`.
 
+## Auto airdrop (optional, off until you switch it on)
+
+A creator who makes a first buy at launch can set aside part of it for holders: a share (1 to 50%), a holder count (5 to 1000) and a wait (1 to 168 hours). When **both** are true, the keeper splits those tokens between the coin's holders, in proportion to what each holds.
+
+- **Non-custodial, but not a lock.** The launch transaction ends with a Token-2022 *approve*: the creator's wallet lets the keeper wallet move up to that many tokens out of the creator's own token account. The tokens stay with the creator until the keeper sends them. If the creator sells them or cancels the permission, nothing is sent, and the coin page says so. The page tells creators this before launch.
+- **Who counts as a holder:** a wallet with at least 100,000 of the coin. The creator, the bonding curve, the keeper and the platform wallet are skipped. The count is a signal, not proof of real people: a creator could hold the coin in many wallets.
+- **What is sent:** the smaller of the approved amount and what the creator still holds, in batches of 10 transfers. Progress is saved, so a failed batch resumes without paying anyone twice (before resending, the keeper checks whether the batch already landed). Each send costs the keeper a normal network fee, no account rent (holders already have token accounts).
+- **Needs:** `KEEPER_SECRET_KEY` and `AIRDROP=yes`. The form hides the option otherwise. Not available for holder-rewards coins or pair launchpads.
+- Wallets will show an extra "approve token delegate" prompt in the launch transaction. That is expected.
+- Route: `GET /api/airdrop?pool=` (settings, status, and whether the approval is still in place).
+
+**Test on devnet before turning it on for real:**
+
+1. Set `AIRDROP=yes` with the keeper wallet funded (devnet), and launch with a first buy and an airdrop of 10%, 5 holders, 1 hour.
+2. Check the wallet prompt shows the approve, and the coin page shows "Airdrop scheduled".
+3. Buy the coin from 5 other devnet wallets (each at least 100,000 tokens' worth).
+4. After an hour and the next keeper run (up to 15 minutes), check the 5 wallets received tokens, the creator's balance dropped, and the coin page says "Airdrop sent".
+5. Launch a second one, then sell the tokens or revoke the approval before it is due, and check it says cancelled and sends nothing.
+
 ## Set up the keeper wallet (once)
 
 Never paste the key into chat, an issue or a commit. It lives only in a file on your computer and in Railway's variables.
@@ -62,6 +81,7 @@ npm test
 | `AUTOCLAIM_MIN_SOL` | Pay out a coin once this much is waiting. Default 0.02. |
 | `AUTOCLAIM_EVERY_MIN` | Minutes between checks. Default 15. |
 | `BOOST_PRICE_MULT` | Scales every boost price. Default 1. Start lower (for example 0.5) until the site has visitors. |
+| `AIRDROP` | `yes` switches on the Auto airdrop option on the launch form (needs `KEEPER_SECRET_KEY`). Test on devnet first. |
 | `HOLDER_REWARDS` | `yes` switches on the Holder rewards option on the launch form. Leave unset until it has been tested. |
 | `HOLDER_LAUNCH_FEE_SOL` | Flat launch fee for holder-rewards coins. Default 0.05. |
 | `LAUNCH_CLUSTER` | `devnet` (default) or `mainnet-beta`. |
@@ -89,6 +109,6 @@ Leave `PLATFORM_SHARE_PCT` and `PAIRS_*` unset.
 
 ## Pages and routes
 
-`/` the launchpad · `/coin/<pool>` a coin · `/rules` how payouts work · `/admin` platform fee page (platform wallet only) · `/admin/launch` founder coin (`FOUNDER_WALLET` only) · `/api/launch/config` · `/api/autoclaim` · `/api/payouts` · `/api/promoted` · `/api/boost/config`.
+`/` the launchpad · `/coin/<pool>` a coin · `/rules` how payouts work · `/admin` platform fee page (platform wallet only) · `/admin/launch` founder coin (`FOUNDER_WALLET` only) · `/api/launch/config` · `/api/autoclaim` · `/api/payouts` · `/api/promoted` · `/api/boost/config` · `/api/airdrop`.
 
 The look is in `public/ap.css` (tokens at the top; light and dark), the payout stub in `public/stub.js`, the brand in `pads/autopad.json` and `pads/autopad/assets/`.

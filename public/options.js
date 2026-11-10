@@ -7,6 +7,7 @@
   if (!feeBox) return;
 
   var cfg = { platformPct: 10, maxPartnerPct: 40, holderRewards: false, holderLaunchFeeSol: 0.05 };
+  var airdropOn = false;     // the site has the airdrop switched on
   var boost = null;          // /api/boost/config
   var rateToBeat = 0;        // when every slot is taken, the SOL per hour a new boost must beat
   var picked = 0;            // the chosen boost amount in SOL; 0 means none
@@ -87,6 +88,17 @@
     });
   }
 
+  function drawAirdrop() {
+    var on = $('ad-on').checked;
+    $('ad-fields').hidden = !on;
+    var out = $('ad-preview');
+    if (!on) { out.textContent = 'No airdrop.'; return; }
+    out.textContent = Number($('ad-pct').value) + '% of the tokens from your first buy go to holders once ' + Number($('ad-holders').value) + ' wallets hold your coin and ' + Number($('ad-hours').value) + ' hours have passed, whichever comes last.';
+  }
+  $('ad-on').addEventListener('change', drawAirdrop);
+  ['ad-pct', 'ad-holders', 'ad-hours'].forEach(function (id) { $(id).addEventListener('input', drawAirdrop); });
+  drawAirdrop();
+
   feeBox.addEventListener('change', drawFee);
   $('fo-pct').addEventListener('input', drawFee);
 
@@ -109,6 +121,15 @@
         if (!minutesFor(picked)) return { ok: false, error: 'The boost amount must be from ' + sol(boost.minSol) + ' to ' + sol(boost.maxSol) + ', or choose No boost.' };
         body.boostSol = picked;
       }
+      if (airdropOn && $('ad-on').checked) {
+        var ap = Number($('ad-pct').value), ah = Number($('ad-holders').value), at = Number($('ad-hours').value);
+        if (!(firstBuy > 0)) return { ok: false, error: 'An airdrop comes from your first buy. Enter a "Buy at launch" amount, or turn the airdrop off.' };
+        if (m === 'holder') return { ok: false, error: 'Holder-rewards coins cannot have an airdrop. Turn the airdrop off.' };
+        if (!Number.isInteger(ap) || ap < 1 || ap > 50) return { ok: false, error: 'The airdrop share must be a whole number from 1 to 50.' };
+        if (!Number.isInteger(ah) || ah < 5 || ah > 1000) return { ok: false, error: 'The airdrop holder count must be a whole number from 5 to 1000.' };
+        if (!Number.isInteger(at) || at < 1 || at > 168) return { ok: false, error: 'The airdrop wait must be a whole number of hours from 1 to 168.' };
+        body.airdropPct = ap; body.airdropHolders = ah; body.airdropHours = at;
+      }
       return { ok: true, body: body };
     }
   };
@@ -118,6 +139,8 @@
       cfg.platformPct = Number.isFinite(c.platformPct) ? c.platformPct : cfg.platformPct;
       cfg.maxPartnerPct = Number.isFinite(c.maxPartnerPct) ? c.maxPartnerPct : cfg.maxPartnerPct;
       cfg.holderRewards = Boolean(c.holderRewards);
+      airdropOn = Boolean(c.airdrop);
+      $('airdrop-opt').hidden = !airdropOn;
       cfg.holderLaunchFeeSol = Number.isFinite(c.holderLaunchFeeSol) ? c.holderLaunchFeeSol : cfg.holderLaunchFeeSol;
     }
     $('fo-creator-text').textContent = 'You keep ' + (100 - cfg.platformPct) + '% of creator fees. They are paid out to you automatically.';

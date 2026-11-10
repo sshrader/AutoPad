@@ -240,6 +240,32 @@ function createBuilder(web3) {
     return instruction('pump', 'create_v2', args, given, remaining).instruction;
   }
 
+  // Token-2022 ApproveChecked: lets `delegate` move up to `amount` tokens out of the owner's token account. The owner signs.
+  function approveChecked({ source, mint, delegate, owner, amount, decimals }) {
+    const data = Buffer.alloc(10);
+    data.writeUInt8(13, 0);
+    data.writeBigUInt64LE(BigInt(amount), 1);
+    data.writeUInt8(decimals, 9);
+    return new TransactionInstruction({
+      programId: new PublicKey(TOKEN_2022),
+      keys: [{ pubkey: pk(source), isSigner: false, isWritable: true }, { pubkey: pk(mint), isSigner: false, isWritable: false }, { pubkey: pk(delegate), isSigner: false, isWritable: false }, { pubkey: pk(owner), isSigner: true, isWritable: false }],
+      data
+    });
+  }
+
+  // Token-2022 TransferChecked. `authority` signs: the owner, or a delegate the owner approved.
+  function transferChecked({ source, mint, destination, authority, amount, decimals }) {
+    const data = Buffer.alloc(10);
+    data.writeUInt8(12, 0);
+    data.writeBigUInt64LE(BigInt(amount), 1);
+    data.writeUInt8(decimals, 9);
+    return new TransactionInstruction({
+      programId: new PublicKey(TOKEN_2022),
+      keys: [{ pubkey: pk(source), isSigner: false, isWritable: true }, { pubkey: pk(mint), isSigner: false, isWritable: false }, { pubkey: pk(destination), isSigner: false, isWritable: true }, { pubkey: pk(authority), isSigner: true, isWritable: false }],
+      data
+    });
+  }
+
   // A plain SOL transfer (the System program's transfer instruction).
   function transferSol({ from, to, lamports }) {
     const data = Buffer.alloc(12);
@@ -332,7 +358,7 @@ function createBuilder(web3) {
 
   return {
     ata, bondingCurveOf, sharingConfigOf, creatorVaultOf, globalPda, createAtaIdempotent,
-    createCoin, transferSol, createSharingConfig, createFeeVaultAtas, setShares, buyExactIn, sell, sweepCreatorFee, distribute, instruction, resolveAccounts
+    createCoin, transferSol, approveChecked, transferChecked, createSharingConfig, createFeeVaultAtas, setShares, buyExactIn, sell, sweepCreatorFee, distribute, instruction, resolveAccounts
   };
 }
 

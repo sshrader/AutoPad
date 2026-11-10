@@ -142,3 +142,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 .promo-t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .promo-t i { font: 500 .85rem var(--mono); font-style: normal; color: var(--muted); }
 .promo-t em { font-size: .78rem; font-style: normal; color: var(--accent); }
+
+.check { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.check input { accent-color: var(--accent); }
+#ad-fields { padding-left: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 560px) { #ad-fields { grid-template-columns: minmax(0, 1fr); } }
+.ad-line { margin: 6px 0; }

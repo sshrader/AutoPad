@@ -149,6 +149,17 @@
         <span class="buyrow"><input type="number" id="l-buy" min="0" max="5" step="0.01" inputmode="decimal" placeholder="0" aria-describedby="l-buy-hint"><span>SOL</span></span>
         <span class="hint" id="l-buy-hint">When launching is set up for it, your buy is in the same transaction that creates the coin, so nobody can buy before you. Otherwise it is the last step, a separate approval a very fast bot could beat. Needs enough SOL for the buy plus network fees.</span>
       </label>
+      <fieldset class="opt" id="airdrop-opt" hidden>
+        <legend>Auto airdrop to holders <span class="hint">(optional)</span></legend>
+        <label class="check"><input type="checkbox" id="ad-on"> Send some of my first buy to holders later</label>
+        <div class="partner" id="ad-fields" hidden>
+          <label>Share of my first buy <span class="buyrow"><input type="number" id="ad-pct" min="1" max="50" step="1" value="10" inputmode="numeric"><span>%</span></span></label>
+          <label>Once holders reach <span class="buyrow"><input type="number" id="ad-holders" min="5" max="1000" step="1" value="50" inputmode="numeric"><span>holders</span></span></label>
+          <label>And at least <span class="buyrow"><input type="number" id="ad-hours" min="1" max="168" step="1" value="24" inputmode="numeric"><span>hours</span></span></label>
+        </div>
+        <p class="hint" id="ad-preview" aria-live="polite"></p>
+        <p class="hint">Your tokens stay in your wallet. The launch asks your wallet to let the AutoPay keeper send them later, and when both conditions are met it splits them between holders by how much each holds. This is not a lock: if you sell those tokens or cancel the permission, nothing is sent. A holder here is a wallet with at least 100,000 of your coins.</p>
+      </fieldset>
       <div class="row">
         <button type="button" class="btn go" id="dl-connect">Connect wallet</button>
         <button type="button" class="btn go" id="dl-go" hidden>Launch coin</button>
