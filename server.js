@@ -81,7 +81,7 @@ function createApp(opts) {
   const padStore = opts.padStore || null;
   // Optional copy check (NoVampPad's rule): every coin must be an original, when a list of originals is given.
   const unique = opts.unique || null;
-  // Autopad: the keeper pays out waiting creator fees on a schedule. These routes only report what it has done.
+  // AutoPay: the keeper pays out waiting creator fees on a schedule. These routes only report what it has done.
   const keeper = opts.keeper || null;
   // One site with one launchpad: its slug. The pad builder is off when this is set.
   const homePad = opts.homePad || '';
@@ -245,7 +245,7 @@ function createApp(opts) {
       return;
     }
 
-    // Autopad's keeper: its numbers and the payouts it has made. Public and read-only; it shows no secrets.
+    // AutoPay's keeper: its numbers and the payouts it has made. Public and read-only; it shows no secrets.
     if ((pathname === '/api/autoclaim' || pathname === '/api/payouts') && (req.method === 'GET' || req.method === 'HEAD')) {
       const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' });
       if (!keeper) return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(pathname === '/api/payouts' ? { payouts: [] } : { enabled: false }), noStore);
@@ -853,7 +853,7 @@ if (require.main === module) {
     showStocks: process.env.PAIRS_STOCKS === 'yes'
   });
   const launchesFile = env('LAUNCHES_FILE') || (dataDir ? path.join(dataDir, cluster === 'devnet' ? 'launches.json' : 'launches.' + cluster + '.json') : '');
-  // The copy check (one coin per ticker, name and picture) is NoVampPad's rule. Autopad leaves it off unless ORIGINALS_CHECK=yes.
+  // The copy check (one coin per ticker, name and picture) is NoVampPad's rule. AutoPay leaves it off unless ORIGINALS_CHECK=yes.
   const unique = env('ORIGINALS_CHECK') === 'yes' ? createUnique({ file: dataDir ? path.join(dataDir, cluster === 'devnet' ? 'originals.json' : 'originals.' + cluster + '.json') : '' }) : null;
   const padStore = createPadStore({
     file: dataDir ? path.join(dataDir, cluster === 'devnet' ? 'padstore.json' : 'padstore.' + cluster + '.json') : '',

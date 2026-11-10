@@ -1,6 +1,6 @@
-# Autopad
+# AutoPay
 
-A pump.fun launchpad that pays creators automatically. Creator fees on pump.fun normally sit in a vault until someone claims them. On Autopad a small server job, the **keeper**, checks every coin on a schedule and sends the waiting fees to the wallets in the coin's fee split. One site, one launchpad. The split is written on-chain at launch: 90% to the wallet that launched the coin, 10% to the platform (`fees.platformSharePct` in `pads/autopad.json`).
+A pump.fun launchpad that pays creators automatically. Creator fees on pump.fun normally sit in a vault until someone claims them. On AutoPay a small server job, the **keeper**, checks every coin on a schedule and sends the waiting fees to the wallets in the coin's fee split. One site, one launchpad. The split is written on-chain at launch: 90% to the wallet that launched the coin, 10% to the platform (`fees.platformSharePct` in `pads/autopad.json`).
 
 The code started from NoVampPad (which started from BuildAPad). The pad builder is switched off; the copy check (one coin per ticker, name and picture) is still in the code and is off unless `ORIGINALS_CHECK=yes`.
 

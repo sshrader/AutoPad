@@ -1,5 +1,5 @@
 'use strict';
-// The keeper: Autopad's auto-claim. Every few minutes it looks at each coin launched here, and when a coin has enough creator
+// The keeper: AutoPay's auto-claim. Every few minutes it looks at each coin launched here, and when a coin has enough creator
 // fees waiting it pays them out to the wallets in that coin's fee split (the creator's share and the platform's share).
 //
 // It never holds anyone's money. pump.fun's payout is open to any wallet: it can only move fees to the shareholders already

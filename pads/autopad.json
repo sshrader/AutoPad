@@ -1,15 +1,15 @@
 {
   "id": "autopad",
-  "name": "Autopad",
+  "name": "AutoPay",
   "subject": "coin",
   "subjects": "coins",
   "tagline": "Creator fees that pay out on their own.",
   "description": "A pump.fun launchpad that pays creators automatically: waiting fees are sent to your wallet on a schedule, no claiming.",
   "heroTitle": "Creator fees that pay out on their own.",
-  "heroLede": "Launch a coin. Autopad checks it every 15 minutes and sends your share to your wallet.",
-  "founderName": "Autopad",
+  "heroLede": "Launch a coin. AutoPay checks it every 15 minutes and sends your share to your wallet.",
+  "founderName": "AutoPay",
   "founderSymbol": "AUTO",
-  "founderDescription": "The first coin on Autopad. Its creator fees pay out on their own.",
+  "founderDescription": "The first coin on AutoPay. Its creator fees pay out on their own.",
   "fees": { "platformSharePct": 10 },
   "theme": {}
 }
