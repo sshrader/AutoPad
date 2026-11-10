@@ -162,3 +162,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 
 @media (min-width: 900px) { .optgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } #opt-boost-card { grid-column: span 2; } }
 @media (min-width: 761px) and (max-width: 900px) { .apsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .apsteps li:nth-child(3) { border-left: 0; } .apsteps li:nth-child(n+3) { border-top: 1px solid var(--line); } }
+
+#airdrop-opt:has(#ad-on:disabled) .check { opacity: .55; cursor: not-allowed; }
+.ad-needs { margin: -4px 0 0; }

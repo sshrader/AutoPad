@@ -88,14 +88,20 @@
     });
   }
 
+  // The airdrop comes out of the first buy, so the box stays off until a "Buy at launch" amount is entered.
   function drawAirdrop() {
+    var buy = Number($('l-buy') && $('l-buy').value) || 0;
+    $('ad-on').disabled = !(buy > 0);
+    $('ad-needs').hidden = buy > 0;
+    if (!(buy > 0)) $('ad-on').checked = false;
     var on = $('ad-on').checked;
     $('ad-fields').hidden = !on;
     var out = $('ad-preview');
-    if (!on) { out.textContent = 'No airdrop.'; return; }
+    if (!on) { out.textContent = buy > 0 ? 'No airdrop.' : ''; return; }
     out.textContent = Number($('ad-pct').value) + '% of the tokens from your first buy go to holders once ' + Number($('ad-holders').value) + ' wallets hold your coin and ' + Number($('ad-minutes').value) + ' minutes have passed, whichever comes last.';
   }
   $('ad-on').addEventListener('change', drawAirdrop);
+  if ($('l-buy')) $('l-buy').addEventListener('input', drawAirdrop);
   ['ad-pct', 'ad-holders', 'ad-minutes'].forEach(function (id) { $(id).addEventListener('input', drawAirdrop); });
   drawAirdrop();
 
