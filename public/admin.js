@@ -135,4 +135,23 @@
   $('claim-all').addEventListener('click', () => claim((data && data.pools) || []));
   $('reload').addEventListener('click', load);
   load();
+
+  // A one-time free launch code: the platform wallet signs a message (no money moves) and the server answers with a code.
+  const freeSay = (t, bad) => { const e = $('free-status'); if (e) { e.textContent = t; e.className = 'dl-status' + (bad ? ' bad' : ''); } };
+  if ($('free-make')) $('free-make').addEventListener('click', async () => {
+    if (!wallet) return;
+    try {
+      const ts = Date.now();
+      freeSay('Approve the signature in your wallet. It does not spend anything.');
+      const signature = await W.signMessage('AutoPay: make a one-time free launch code. Wallet: ' + wallet + '. Time: ' + ts);
+      const res = await fetch('/api/admin/freecode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: wallet, ts: ts, signature: signature }) });
+      const out = await res.json().catch(() => null);
+      if (!res.ok || !out || !out.code) {
+        freeSay(({ free_off: 'Free launches are off: they need devnet and a keeper wallet (KEEPER_SECRET_KEY).', not_admin: 'This wallet cannot make codes.', too_many_open: 'There are already 10 unused codes. Use or wait for some to expire.', stale: 'Your clock looks off. Try again.' })[out && out.error] || 'Could not make a code.', true);
+        return;
+      }
+      $('free-code').textContent = out.code; $('free-code').hidden = false;
+      freeSay('Give this code to one tester. It works once.');
+    } catch (err) { freeSay('That was not approved.', true); }
+  });
 })();

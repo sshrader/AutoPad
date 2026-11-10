@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { createUnique, imageHash } = require('./unique');
 const { createKeeper, web3Io } = require('./keeper');
+const { createFreeLaunch } = require('./freelaunch');
 const { createAirdrops, createAirdropper } = require('./airdrop');
 const { createBoost } = require('./boost');
 const { createLauncher, metadataFor, cleanText } = require('./launch');
@@ -85,6 +86,9 @@ function createApp(opts) {
   const unique = opts.unique || null;
   // AutoPay: the keeper pays out waiting creator fees on a schedule. These routes only report what it has done.
   const keeper = opts.keeper || null;
+  // One-time free launches (devnet testing): a code from the admin page lets someone launch one coin without a wallet.
+  const freeLaunch = opts.freeLaunch || null;
+  const freeTries = new Map();
   // Holder counts for the coin table are slow to read, so they are kept for five minutes and refreshed a few at a time in the background.
   const holderCache = new Map();
   let holderBusy = 0;
@@ -544,6 +548,45 @@ function createApp(opts) {
       return;
     }
 
+    // One-time free launch codes: the admin wallet signs to make one; a tester uses it to launch a coin with no wallet.
+    if (pathname === '/api/admin/freecode' && req.method === 'POST') {
+      const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store', Connection: 'close' });
+      if (!freeLaunch) return send(res, 404, JSON.stringify({ error: 'free_off' }), noStore);
+      readJson(req, 2048).then(body => {
+        if (!body) return send(res, 400, JSON.stringify({ error: 'bad_request' }), noStore);
+        const r = freeLaunch.issue(body);
+        return send(res, r.status, JSON.stringify(r.body), noStore);
+      }).catch(() => send(res, 500, JSON.stringify({ error: 'server_error' }), noStore));
+      return;
+    }
+    if (pathname === '/api/launch/free' && req.method === 'POST') {
+      const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store', Connection: 'close' });
+      if (!freeLaunch || !launcher) return send(res, 404, JSON.stringify({ error: 'free_off' }), noStore);
+      readJson(req, 4096).then(async body => {
+        if (!body) return send(res, 400, JSON.stringify({ error: 'bad_request' }), noStore);
+        // Guessing codes is slow on purpose: a few tries per address every ten minutes.
+        const ip = clientIp(req), t = Date.now();
+        const recent = (freeTries.get(ip) || []).filter(x => t - x < 600000);
+        if (recent.length >= 8) return send(res, 429, JSON.stringify({ error: 'rate_limited' }), noStore);
+        recent.push(t); freeTries.set(ip, recent);
+        if (freeTries.size > 2000) for (const [k, v] of freeTries) if (!v.some(x => t - x < 600000)) freeTries.delete(k);
+        if (!freeLaunch.valid(body.code)) return send(res, 403, JSON.stringify({ error: 'bad_code' }), noStore);
+        let links = {};
+        if (body.links !== undefined) {
+          links = normalizeLinks(body.links);
+          if (links === null || (Object.keys(links).length && !(typeof body.art === 'string' && art.record(body.art)))) return send(res, 400, JSON.stringify({ error: 'bad_links' }), noStore);
+        }
+        if (blockedWord(String(body.name || '') + ' ' + String(body.symbol || ''))) return send(res, 400, JSON.stringify({ error: 'blocked_name' }), noStore);
+        const input = { code: body.code, name: body.name, symbol: body.symbol, art: body.art };
+        const r = await freeLaunch.launch(input, { ip: ip, baseUrl: baseUrlFor(req), founder: founder, pad: null, hasArt: id => Boolean(art.get(id)) }, (prepared, creator) => {
+          if (launches) launches.record({ pool: prepared.pool, mint: prepared.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: creator, art: body.art, pad: '', preset: '', devBuySol: 0, feeMode: 'creator', partner: '', partnerPct: 0, boostLamports: 0, boostMin: 0 });
+          if (typeof body.art === 'string' && art.record(body.art)) { if (Object.keys(links).length) art.setLinks(body.art, links, false); art.pin(body.art); }
+        });
+        return send(res, r.status, JSON.stringify(r.body), noStore);
+      }).catch(() => send(res, 500, JSON.stringify({ error: 'server_error' }), noStore));
+      return;
+    }
+
     const POSTS = { '/api/launch/prepare': 'prepare', '/api/launch/step': 'step', '/api/launch/buy': 'buy', '/api/launch/claim': 'distribute' };
     if (req.method === 'POST' && Object.prototype.hasOwnProperty.call(POSTS, pathname)) {
       const action = POSTS[pathname];
@@ -759,7 +802,7 @@ function createApp(opts) {
     if (pathname === '/api/launch/config') {
       const info = launcher ? launcher.info() : { enabled: false, cluster: 'devnet' };
       // What the launch form can offer: holder rewards only where the site has switched them on, and how much of the fees a partner can take.
-      const out = Object.assign({}, info, { holderRewards: process.env.HOLDER_REWARDS === 'yes', maxPartnerPct: Math.max(0, 50 - (info.platformPct || 0)) });
+      const out = Object.assign({}, info, { holderRewards: process.env.HOLDER_REWARDS === 'yes', maxPartnerPct: Math.max(0, 50 - (info.platformPct || 0)), free: Boolean(freeLaunch) });
       return send(res, 200, JSON.stringify(out), Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' }));
     }
 
@@ -1038,7 +1081,13 @@ if (require.main === module) {
       console.log('Auto-claim on: keeper ' + io.payer + ', pays out coins with at least ' + keeper.status().minSol + ' SOL waiting, every ' + keeper.status().everyMin + ' minutes.');
     } catch (err) { console.error('Auto-claim is off: ' + (err && err.message)); }
   } else console.log('Auto-claim is off: set KEEPER_SECRET_KEY to turn it on.');
-  const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, airdrops, boost, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });
+  // Free test launches: devnet only, and only with a keeper wallet to pay for them. Switch off with FREE_LAUNCH=no.
+  let freeLaunch = null;
+  if (keeperIo && cluster === 'devnet' && launcher.info().enabled && env('FREE_LAUNCH') !== 'no') {
+    freeLaunch = createFreeLaunch({ launcher, io: keeperIo, admins: [env('PLATFORM_FEE_WALLET') || pad.fees.wallet, founderWallet], file: dataDir ? path.join(dataDir, 'freecodes.json') : '' });
+    console.log('Free test launches on: codes are made on the admin page.');
+  }
+  const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, airdrops, freeLaunch, boost, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });
   server.listen(PORT, '0.0.0.0', () => {
     console.log(pad.name + ' listening on port ' + PORT + (art.info().enabled ? ' (picture studio on, ' + art.provider + ')' : ' (picture studio OFF: ' + art.reason + '; provider ' + art.provider + ')') + (artDir ? ' (pictures saved in ' + artDir + ')' : ' (pictures in memory only: no volume)') +
       (launcher.info().enabled ? ' (' + cluster + ' launch on)' : ' (' + cluster + ' launch off: set PLATFORM_FEE_WALLET)') + (launchesFile ? ' (launch list saved in ' + launchesFile + ')' : ' (launch list in memory only)'));

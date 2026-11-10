@@ -172,6 +172,11 @@
         <p class="hint" id="ad-preview" aria-live="polite"></p>
         <p class="hint">Your tokens stay in your wallet. The launch asks your wallet to let the AutoPay keeper send them later, and when both conditions are met it splits them between holders by how much each holds. This is not a lock: if you sell those tokens or cancel the permission, nothing is sent. A holder here is a wallet with at least 100,000 of your coins.</p>
       </fieldset>
+      <fieldset class="opt" id="free-opt" hidden>
+        <legend>Free test launch <span class="hint">(one-time code)</span></legend>
+        <p class="hint">Got a code from the {{name}} team? Launch this coin without connecting a wallet. {{name}} pays the test network fees and owns the coin, so the options above (fee sharing, boost, buy, airdrop) are skipped.</p>
+        <div class="row"><input type="text" id="fl-code" maxlength="12" placeholder="ABCD-EFGH" autocomplete="off" spellcheck="false" aria-label="Free launch code"><button type="button" class="btn go" id="fl-go">Launch for free</button></div>
+      </fieldset>
       <div class="row">
         <button type="button" class="btn go" id="dl-connect">Connect wallet</button>
         <button type="button" class="btn go" id="dl-go" hidden>Launch coin</button>

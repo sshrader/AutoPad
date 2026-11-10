@@ -113,3 +113,8 @@ Leave `PLATFORM_SHARE_PCT` and `PAIRS_*` unset.
 `/` the launchpad · `/coin/<pool>` a coin · `/rules` how payouts work · `/admin` platform fee page (platform wallet only) · `/admin/launch` founder coin (`FOUNDER_WALLET` only) · `/api/launch/config` · `/api/autoclaim` · `/api/payouts` · `/api/promoted` · `/api/boost/config` · `/api/airdrop`.
 
 The look is in `public/ap.css` (tokens at the top; light and dark), the payout stub in `public/stub.js`, the brand in `pads/autopad.json` and `pads/autopad/assets/`.
+
+
+## Free test launch (devnet)
+
+Needs `KEEPER_SECRET_KEY` and devnet (turn off with `FREE_LAUNCH=no`). On the admin page, connect the platform wallet and press "Make a code" (it signs a free message). Give the code to one tester: they fill in the coin on the launch page, enter the code under "Free test launch" and press "Launch for free", with no wallet. The keeper wallet pays and is the coin's creator, so there is no first buy, boost or airdrop. A code works once and lasts 7 days; at most 10 unused codes at a time. Codes are saved in `freecodes.json` in the data folder.

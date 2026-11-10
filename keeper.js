@@ -39,6 +39,12 @@ function web3Io(opts) {
       }
       throw new Error('payout transaction was not confirmed in time');
     },
+    // Signs a launch transaction (legacy or v0, with other signatures already on it), sends it and waits for it to land.
+    async signSend(base64) {
+      const vtx = web3.VersionedTransaction.deserialize(Buffer.from(base64, 'base64'));
+      vtx.sign([kp]);
+      return this.send(Buffer.from(vtx.serialize()).toString('base64'));
+    },
     async balanceSol() { return (await connection.getBalance(kp.publicKey)) / 1e9; }
   };
 }

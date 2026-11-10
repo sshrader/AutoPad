@@ -8,6 +8,7 @@
   const W = window.AnimalWallet;
 
   let enabled = false;
+  let freeOn = false;
   let split = null; // { creatorPct, platformPct } from the server
   let staged = null;
   let wallet = null; // base58 address once connected
@@ -29,6 +30,8 @@
     $('dl-go').hidden = !wallet;
     $('dl-go').disabled = busy;
     $('dl-connect').disabled = busy;
+    const fo = $('free-opt');
+    if (fo) { fo.hidden = !freeOn || Boolean(pending); $('fl-go').disabled = busy; }
   }
 
   function strip(label, value) {
@@ -175,6 +178,42 @@
     busy = false; render();
   }
 
+
+  // A one-time code launches the coin with no wallet: the server's own wallet pays and signs. It takes about half a minute.
+  async function freeLaunch() {
+    if (!staged || busy) return;
+    const code = $('fl-code').value.trim();
+    if (!code) { say('Enter your launch code first.', true); return; }
+    busy = true; render();
+    $('dl-result').hidden = true;
+    say('Launching your coin. This takes about 30 seconds. Please keep this page open…');
+    try {
+      const links = {};
+      [['website', 'l-web'], ['twitter', 'l-x'], ['telegram', 'l-tg']].forEach(p => { const v = $(p[1]).value.trim(); if (v) links[p[0]] = v; });
+      const res = await fetch('/api/launch/free', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code, name: staged.name, symbol: staged.symbol, art: staged.art, links: links }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.mint) {
+        const why = { bad_code: 'That code is not valid. It may have been used already, or it has expired.', rate_limited: 'Too many tries. Wait a few minutes.', free_failed: 'The launch did not go through and your code was not used. Try again.', free_partial: 'Your coin was created, but the last step did not finish. Your code is used up. Tell the ' + window.PAD.platform + ' team this address: ' + ((data && data.mint) || ''), bad_name: 'That name is not allowed.', bad_symbol: 'Use 1 to 10 letters or digits for the ticker.', bad_art: 'That picture is no longer available. Make a new one.', bad_links: 'Check your links.', blocked_name: 'That name or ticker is not allowed.', uri_too_long: 'That name is too long.', free_off: 'Free launches are not switched on.' };
+        say((data && why[data.error]) || 'Could not launch. Try again.', true);
+        busy = false; render();
+        return;
+      }
+      const box = $('dl-result');
+      box.innerHTML = '';
+      box.appendChild(strip('CA', data.mint));
+      const a = document.createElement('a');
+      a.href = 'https://explorer.solana.com/address/' + encodeURIComponent(data.mint) + AnimalNet.suffix; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Token ↗';
+      box.appendChild(a); box.hidden = false;
+      say('Done ✓ Your coin is live. Find it in the coin list.');
+      $('fl-code').value = '';
+      document.dispatchEvent(new CustomEvent('animalpad:launched', { detail: { pool: data.pool } }));
+    } catch (err) {
+      say('The launch did not go through. Check your connection and try again.', true);
+    }
+    busy = false; render();
+  }
+  if ($('fl-go')) $('fl-go').addEventListener('click', freeLaunch);
+
   document.addEventListener('animalpad:reset', () => { staged = null; pending = null; $('dl-result').hidden = true; say(''); render(); });
 
   document.addEventListener('animalpad:wallet', e => { wallet = (e.detail && e.detail.address) || null; render(); });
@@ -192,6 +231,7 @@
     .then(r => r.json())
     .then(info => {
       enabled = Boolean(info && info.enabled);
+      freeOn = Boolean(info && info.free);
       split = info && info.split ? info.split : null;
       const ex = window.PAD.extra;
       if (split && ex && Number.isInteger(ex.ownerPct) && ex.ownerPct > 0) split = { creatorPct: split.creatorPct - ex.ownerPct, ownerPct: ex.ownerPct, platformPct: split.platformPct };
