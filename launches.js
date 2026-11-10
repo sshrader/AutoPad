@@ -55,6 +55,12 @@ function createLaunches(opts) {
       devBuySol: e && Number.isFinite(e.devBuySol) && e.devBuySol > 0 && e.devBuySol <= 5 ? e.devBuySol : 0,
       createdAt: now(), verified: false
     };
+    // How this coin's creator fees are shared. The server keeps it here so the fee-split step uses the choice made at launch.
+    entry.feeMode = e && (e.feeMode === 'holder' || e.feeMode === 'partner') ? e.feeMode : 'creator';
+    if (entry.feeMode === 'partner' && e && B58.test(e.partner || '') && Number.isInteger(e.partnerPct) && e.partnerPct > 0) { entry.partner = e.partner; entry.partnerPct = e.partnerPct; }
+    else if (entry.feeMode === 'partner') entry.feeMode = 'creator';
+    // A boost bought at launch. It starts only once the payment is seen on-chain (startBoost).
+    if (e && Number.isInteger(e.boostLamports) && e.boostLamports > 0 && Number.isInteger(e.boostMin) && e.boostMin > 0) { entry.boostLamports = e.boostLamports; entry.boostMin = e.boostMin; }
     if (!valid(entry)) return false;
     const i = entries.findIndex(x => x.pool === entry.pool);
     if (i !== -1) return true; // a retry of the same launch
@@ -166,6 +172,49 @@ function createLaunches(opts) {
     return true;
   }
 
+  // The fee choice made at launch, from the server's own record: { mode: 'creator' | 'partner' | 'holder', partner, partnerPct }.
+  const feeOf = pool => { const e = entries.find(x => x.pool === pool); return e ? { mode: e.feeMode || 'creator', partner: e.partner || '', partnerPct: e.partnerPct || 0 } : { mode: 'creator', partner: '', partnerPct: 0 }; };
+
+  // What a boost was asked for at launch (null if none or already running): { creator, lamports, minutes }.
+  const boostIntent = pool => { const e = entries.find(x => x.pool === pool); return e && e.boostLamports && !e.boostStartAt ? { creator: e.creator, lamports: e.boostLamports, minutes: e.boostMin } : null; };
+
+  // The payment was seen on-chain: the boost runs from now. Each payment signature can start only one boost.
+  function startBoost(pool, sig) {
+    const e = entries.find(x => x.pool === pool);
+    if (!e || !e.boostLamports || typeof sig !== 'string' || !sig) return false;
+    if (e.boostStartAt) return e.boostSig === sig; // asking again is fine
+    if (entries.some(x => x.boostSig === sig)) return false;
+    e.boostStartAt = now(); e.boostSig = sig;
+    caches.delete('promoted');
+    save();
+    return true;
+  }
+
+  // The boosted coins that are running now, best rate first (SOL paid per hour; the earlier start wins a tie), at most `slots`.
+  const rateOf = e => (e.boostLamports / 1e9) / (e.boostMin / 60);
+  const activeBoosts = () => entries.filter(e => e.boostStartAt && !hidden.has(e.pool) && now() < e.boostStartAt + e.boostMin * 60000)
+    .sort((a, b) => rateOf(b) - rateOf(a) || a.boostStartAt - b.boostStartAt);
+  async function promoted(slots) {
+    const hit = caches.get('promoted');
+    if (hit && now() - hit.at < listTtlMs) return hit.items;
+    const top = activeBoosts().slice(0, slots || 4);
+    const items = [];
+    for (const e of top) {
+      const r = await inspect(e.pool);
+      if (r.status !== 200) continue;
+      const rec = e.art ? artRecord(e.art) : null;
+      items.push({
+        pool: e.pool, name: e.name, symbol: e.symbol, imageUrl: rec ? '/art/' + rec.id + '.' + (rec.ext === 'jpg' ? 'jpg' : 'png') : '',
+        raisedSol: r.body.raisedSol, thresholdSol: r.body.thresholdSol, progress: r.body.progress, migrated: r.body.migrated,
+        endsAt: e.boostStartAt + e.boostMin * 60000, perHour: Math.round(rateOf(e) * 1000) / 1000
+      });
+    }
+    caches.set('promoted', { at: now(), items });
+    return items;
+  }
+  // The rate a new boost must beat to get a slot when they are all taken (0 when there is room).
+  const rateToBeat = slots => { const a = activeBoosts(); return a.length >= (slots || 4) ? Math.round(rateOf(a[(slots || 4) - 1]) * 1000) / 1000 : 0; };
+
   // Which pad a coin was launched on ('' for none). The server uses this, never the browser, to decide the fee split.
   const padOf = pool => { const e = entries.find(x => x.pool === pool); return e ? e.pad || '' : ''; };
 
@@ -217,7 +266,7 @@ function createLaunches(opts) {
   // Every coin written down, for the keeper to look at. The keeper asks the chain itself, so unconfirmed ones are simply skipped.
   const pools = () => entries.filter(e => !hidden.has(e.pool)).map(e => ({ pool: e.pool, mint: e.mint, name: e.name, symbol: e.symbol, creator: e.creator }));
 
-  return { record, list, pools, detail, setSiteVerified, padOf, board, topCoins, findByArt, findAllByArt, findAllBySymbol, size: () => entries.length };
+  return { record, list, pools, feeOf, boostIntent, startBoost, promoted, rateToBeat, detail, setSiteVerified, padOf, board, topCoins, findByArt, findAllByArt, findAllBySymbol, size: () => entries.length };
 }
 
 module.exports = { createLaunches };

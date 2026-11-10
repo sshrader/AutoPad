@@ -35,7 +35,7 @@
     return info.shares.map(s => {
       if (s.address === info.platformWallet) return s.pct + '% ' + p;
       if (!seenCreator) { seenCreator = true; return s.pct + '% creator'; }
-      return s.pct + '% pad owner';
+      return s.pct + '% partner';
     }).join(', ');
   };
   // Dollars, for amounts of any pool token: "$1,234", "$12.34", "$0.0028" or "under $0.0001". Empty when the price is unknown.

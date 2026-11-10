@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { createUnique, imageHash } = require('./unique');
 const { createKeeper, web3Io } = require('./keeper');
+const { createBoost } = require('./boost');
 const { createLauncher, metadataFor, cleanText } = require('./launch');
 const { createLaunches } = require('./launches');
 const { createActions } = require('./actions');
@@ -83,6 +84,8 @@ function createApp(opts) {
   const unique = opts.unique || null;
   // AutoPay: the keeper pays out waiting creator fees on a schedule. These routes only report what it has done.
   const keeper = opts.keeper || null;
+  // Paid boosts to the Promoted row: the prices, and how many slots there are.
+  const boostCfg = opts.boost || createBoost({});
   // One site with one launchpad: its slug. The pad builder is off when this is set.
   const homePad = opts.homePad || '';
   // Picture uploads are limited per visitor, like pad creation.
@@ -242,6 +245,16 @@ function createApp(opts) {
         const rec = art.record(id);
         send(res, 200, JSON.stringify({ id, imageUrl: '/art/' + id + '.' + (rec && rec.ext === 'jpg' ? 'jpg' : 'png'), name, ticker, description }), noStore);
       }).catch(() => send(res, 500, JSON.stringify({ error: 'server_error' }), noStore));
+      return;
+    }
+
+    // The Promoted row and the boost prices. Public and read-only.
+    if ((pathname === '/api/promoted' || pathname === '/api/boost/config') && (req.method === 'GET' || req.method === 'HEAD')) {
+      const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' });
+      if (pathname === '/api/boost/config') return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify(boostCfg.config()), noStore);
+      if (!launches) return send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify({ items: [], slots: boostCfg.slots, rateToBeat: 0 }), noStore);
+      launches.promoted(boostCfg.slots).then(items => send(res, 200, req.method === 'HEAD' ? '' : JSON.stringify({ items, slots: boostCfg.slots, rateToBeat: launches.rateToBeat(boostCfg.slots) }), noStore))
+        .catch(() => send(res, 500, JSON.stringify({ error: 'server_error' }), noStore));
       return;
     }
 
@@ -462,6 +475,22 @@ function createApp(opts) {
       return;
     }
 
+    // A boost bought at launch starts once its payment is seen on-chain: the page sends the launch transaction's signature.
+    if (req.method === 'POST' && pathname === '/api/launch/boost') {
+      const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store', Connection: 'close' });
+      if (!launcher || !launches) return send(res, 503, JSON.stringify({ error: 'launch_unavailable' }), noStore);
+      readJson(req, 2048).then(async body => {
+        if (!body || typeof body.pool !== 'string' || typeof body.sig !== 'string') return send(res, 400, JSON.stringify({ error: 'bad_request' }), noStore);
+        const intent = launches.boostIntent(body.pool);
+        if (!intent) return launches.startBoost(body.pool, body.sig) ? send(res, 200, JSON.stringify({ started: true }), noStore) : send(res, 404, JSON.stringify({ error: 'no_boost' }), noStore);
+        const r = await launcher.verifyBoost({ pool: body.pool, sig: body.sig, creator: intent.creator, lamports: intent.lamports }, { ip: clientIp(req) });
+        if (r.status !== 200) return send(res, r.status, JSON.stringify(r.body), noStore);
+        if (!launches.startBoost(body.pool, body.sig)) return send(res, 409, JSON.stringify({ error: 'boost_sig_used' }), noStore);
+        return send(res, 200, JSON.stringify({ started: true, minutes: intent.minutes }), noStore);
+      }).catch(() => send(res, 500, JSON.stringify({ error: 'server_error' }), noStore));
+      return;
+    }
+
     const POSTS = { '/api/launch/prepare': 'prepare', '/api/launch/step': 'step', '/api/launch/buy': 'buy', '/api/launch/claim': 'distribute' };
     if (req.method === 'POST' && Object.prototype.hasOwnProperty.call(POSTS, pathname)) {
       const action = POSTS[pathname];
@@ -511,6 +540,30 @@ function createApp(opts) {
             if (rules.requireFirstBuy && !(Number(body.firstBuySol) >= rules.minFirstBuySol)) return send(res, 400, JSON.stringify({ error: 'first_buy_required', min: rules.minFirstBuySol }), noStore);
           }
         }
+        // How this coin's creator fees are shared: creator rewards (the default), shared with another wallet, or holder rewards.
+        // The choice is checked here and kept with the coin, so the fee-split step later uses the same one. Nothing is taken from the browser at that step.
+        let feeMode = 'creator', partner = '', partnerPct = 0;
+        if (action === 'prepare') {
+          const m = body.feeMode === undefined || body.feeMode === null || body.feeMode === '' ? 'creator' : body.feeMode;
+          if (m !== 'creator' && m !== 'partner' && m !== 'holder') return send(res, 400, JSON.stringify({ error: 'bad_fee_mode' }), noStore);
+          feeMode = m;
+          if (m === 'partner') {
+            const maxPct = Math.max(0, 50 - launcher.info().platformPct);
+            partner = typeof body.partner === 'string' ? body.partner.trim() : '';
+            partnerPct = Number(body.partnerPct);
+            if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(partner)) return send(res, 400, JSON.stringify({ error: 'bad_partner' }), noStore);
+            if (partner === body.creator) return send(res, 400, JSON.stringify({ error: 'partner_is_creator' }), noStore);
+            if (!Number.isInteger(partnerPct) || partnerPct < 1 || partnerPct > maxPct) return send(res, 400, JSON.stringify({ error: 'bad_partner_pct', max: maxPct }), noStore);
+            padCtx = Object.assign({}, padCtx, { owner: partner, ownerPct: partnerPct });
+          } else if (m === 'holder') {
+            if (process.env.HOLDER_REWARDS !== 'yes') return send(res, 409, JSON.stringify({ error: 'holder_not_ready' }), noStore);
+            padCtx = Object.assign({}, padCtx, { holderRewards: true });
+          }
+        } else if (action === 'step' && launches) {
+          const f = launches.feeOf(String(body.mint || ''));
+          if (f.mode === 'partner') padCtx = Object.assign({}, padCtx, { owner: f.partner, ownerPct: f.partnerPct });
+          else if (f.mode === 'holder') padCtx = Object.assign({}, padCtx, { holderRewards: true });
+        }
         // The originals rule: a new coin may not copy one already launched here. Checked and held before anything is built.
         const gate = action === 'prepare' && unique ? (async () => {
           const buf = typeof body.art === 'string' ? art.get(body.art) : null;
@@ -530,7 +583,7 @@ function createApp(opts) {
             // Once the next step is asked for and the coin is on-chain, the coin counts as launched for good.
             if (action === 'step' && unique && r.status === 200 && r.body && r.body.step !== 'waiting' && typeof body.mint === 'string') unique.confirm(body.mint);
             if (action === 'prepare' && r.status === 200 && launches) {
-              launches.record({ pool: r.body.pool, mint: r.body.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: body.creator, art: body.art, pad: padSlug, preset: '', devBuySol: r.body.firstBuySol });
+              launches.record({ pool: r.body.pool, mint: r.body.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: body.creator, art: body.art, pad: padSlug, preset: '', devBuySol: r.body.firstBuySol, feeMode, partner, partnerPct, boostLamports: r.body.boost ? r.body.boost.lamports : 0, boostMin: r.body.boost ? r.body.boost.minutes : 0 });
             }
             if (action === 'prepare' && r.status === 200 && typeof body.art === 'string') {
               // Links are saved, then the picture is kept for good and its links are frozen.
@@ -649,7 +702,9 @@ function createApp(opts) {
     // Whether launching is switched on, so the page knows whether to offer it.
     if (pathname === '/api/launch/config') {
       const info = launcher ? launcher.info() : { enabled: false, cluster: 'devnet' };
-      return send(res, 200, JSON.stringify(info), Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' }));
+      // What the launch form can offer: holder rewards only where the site has switched them on, and how much of the fees a partner can take.
+      const out = Object.assign({}, info, { holderRewards: process.env.HOLDER_REWARDS === 'yes', maxPartnerPct: Math.max(0, 50 - (info.platformPct || 0)) });
+      return send(res, 200, JSON.stringify(out), Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' }));
     }
 
     // Read-only chain lookups for the page: did a transaction land, and where does a curve stand.
@@ -839,7 +894,9 @@ if (require.main === module) {
     dailyCap: Number(process.env.ART_DAILY_CAP) || undefined
   });
   const cluster = env('LAUNCH_CLUSTER') || 'devnet';
+  const boost = createBoost({ mult: Number(env('BOOST_PRICE_MULT')) || undefined });
   const launcher = createLauncher({
+    boost,
     cluster,
     allowMainnet: env('MAINNET_ENABLED') === 'yes',
     platformWallet: env('PLATFORM_FEE_WALLET') || pad.fees.wallet,
@@ -910,7 +967,7 @@ if (require.main === module) {
       console.log('Auto-claim on: keeper ' + io.payer + ', pays out coins with at least ' + keeper.status().minSol + ' SOL waiting, every ' + keeper.status().everyMin + ' minutes.');
     } catch (err) { console.error('Auto-claim is off: ' + (err && err.message)); }
   } else console.log('Auto-claim is off: set KEEPER_SECRET_KEY to turn it on.');
-  const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });
+  const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, boost, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });
   server.listen(PORT, '0.0.0.0', () => {
     console.log(pad.name + ' listening on port ' + PORT + (art.info().enabled ? ' (picture studio on, ' + art.provider + ')' : ' (picture studio OFF: ' + art.reason + '; provider ' + art.provider + ')') + (artDir ? ' (pictures saved in ' + artDir + ')' : ' (pictures in memory only: no volume)') +
       (launcher.info().enabled ? ' (' + cluster + ' launch on)' : ' (' + cluster + ' launch off: set PLATFORM_FEE_WALLET)') + (launchesFile ? ' (launch list saved in ' + launchesFile + ')' : ' (launch list in memory only)'));

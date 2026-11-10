@@ -84,16 +84,37 @@
       if (!sres.ok || !next) { say('Your coin was created, but the next step could not be prepared. Press Launch to try again.', true); return; }
       if (next.step === 'waiting') { if (++waits > 10) break; await new Promise(r => setTimeout(r, 2000)); round--; continue; }
       if (next.step === 'done') { done = true; break; }
+      const sp = data.split && Number.isFinite(data.split.creatorPct) ? data.split : split;
       say(next.step === 'split'
-        ? 'Step 2 of ' + total + ': approve the fee split' + (split ? ' (you keep ' + split.creatorPct + '% of creator fees' + (split.ownerPct ? ', ' + window.PAD.name + ' ' + split.ownerPct + '%' : '') + ', ' + window.PAD.platform + ' ' + split.platformPct + '%)' : '') + '…'
+        ? 'Step 2 of ' + total + ': approve the fee split' + (sp ? ' (you keep ' + sp.creatorPct + '% of creator fees' + (sp.ownerPct ? ', your partner ' + sp.ownerPct + '%' : '') + ', ' + window.PAD.platform + ' ' + sp.platformPct + '%)' : '') + '…'
         : 'Step 3 of ' + total + ': approve your first buy…');
       const sig = await W.signAndSend(next.transaction);
       say('Sent. Waiting for the network to confirm…');
       const st = await W.confirm(sig);
       if (st !== 'confirmed') { say('That step did not confirm. Your coin exists. Press Launch to continue where it stopped.', true); return; }
     }
-    if (done) pending = null;
-    say(done ? 'Done ✓ Your coin is live. Trade it in the card below.' : 'Your coin is live, but a step is still pending. Press Launch to continue.', !done);
+    const boosted = done ? await startBoost() : null;
+    if (done && boosted !== false) pending = null;
+    say(done ? 'Done ✓ Your coin is live.' + (boosted ? ' Your boost has started: it shows in the Promoted row for about ' + boosted + ' min.' : '') + ' Trade it in the card below.' : 'Your coin is live, but a step is still pending. Press Launch to continue.', !done);
+    if (done && boosted === false) say('Your coin is live, and your boost payment went through, but it has not started yet. Press Launch to try again.', true);
+  }
+
+  // A boost was paid for in the launch transaction. Once that is on-chain the server confirms it and the boost starts.
+  // Returns the minutes it runs for, null if there was no boost, or false if it could not be confirmed yet.
+  async function startBoost() {
+    const data = pending && pending.data;
+    if (!data || !data.boost || !pending.signature) return null;
+    if (pending.boostMinutes) return pending.boostMinutes;
+    for (let i = 0; i < 8; i++) {
+      try {
+        const res = await fetch('/api/launch/boost', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pool: data.pool, sig: pending.signature }) });
+        const out = await res.json().catch(() => null);
+        if (res.ok && out && out.started) { pending.boostMinutes = out.minutes || data.boost.minutes; return pending.boostMinutes; }
+        if (!(res.status === 404 || res.status === 502)) return false; // not paid, or something that will not fix itself
+      } catch (e) { /* try again */ }
+      await new Promise(r => setTimeout(r, 2500));
+    }
+    return false;
   }
 
   async function launch() {
@@ -115,17 +136,19 @@
         busy = false; render();
         return;
       }
+      const opt = window.APOptions ? window.APOptions.get(wallet, firstBuy) : { ok: true, body: {} };
+      if (!opt.ok) { say(opt.error, true); busy = false; render(); return; }
       const links = {};
       [['website', 'l-web'], ['twitter', 'l-x'], ['telegram', 'l-tg']].forEach(p => { const v = $(p[1]).value.trim(); if (v) links[p[0]] = v; });
       say('Preparing the transaction…');
       const res = await fetch('/api/launch/prepare', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: staged.name, symbol: staged.symbol, art: staged.art, creator: wallet, links: links, firstBuySol: firstBuy, pad: (window.PAD.extra && window.PAD.extra.slug) || undefined })
+        body: JSON.stringify(Object.assign({ name: staged.name, symbol: staged.symbol, art: staged.art, creator: wallet, links: links, firstBuySol: firstBuy, pad: (window.PAD.extra && window.PAD.extra.slug) || undefined }, opt.body))
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || typeof data.transaction !== 'string') {
         const by = data && data.by ? ' It matches $' + String(data.by.symbol).slice(0, 10) + ' (' + String(data.by.name).slice(0, 32) + ').' : '';
-        const why = { ticker_taken: 'This ticker is already taken on this launchpad. Every coin here must be an original, so pick a different ticker.' + by, name_taken: 'This name is already taken on this launchpad, or is too close to one that is. Pick a different name.' + by, picture_taken: 'This picture is the same as, or very close to, one already launched here. Use your own picture.' + by, picture_required: 'Add a picture for your coin first.', not_allowed: data && data.reason === 'not_listed' ? 'This launchpad is private. Only wallets on its list can launch coins here.' : 'This wallet cannot launch coins on this launchpad.', pair_buy_not_ready: 'Buying your own coin at launch is not available yet on a launchpad with a pool pair other than SOL. Launch without a first buy.', pair_not_found: 'This launchpad\'s pool pair was not found on this network.', holder_not_ready: 'Holder-rewards coins are not switched on for this site yet.', holder_buy_not_ready: 'Buying your own coin at launch is not available yet on a holder-rewards launchpad. Launch without a first buy.', holder_pair_unsupported: 'Holder rewards cannot be combined with a pool pair.', pair_not_ready: 'This launchpad uses a pool pair other than SOL, and launching with a pair is not switched on yet.', first_buy_required: 'This launchpad needs you to buy your own coin at launch: at least ' + ((data && data.min) || 0.05) + ' SOL.', rate_limited: 'Too many launches. Wait a minute.', bad_name: 'That name is not allowed.', bad_symbol: 'Use 1 to 10 letters or digits for the ticker.', bad_art: 'That picture is no longer available. Make a new one.', bad_amount: 'Buy at launch must be from 0.01 to 5 SOL, or left empty.', bad_links: 'Check your links. A website needs https://, and X takes a handle, a profile link or a post link, and Telegram takes a handle like @yourcoin.', links_locked: 'Your links are locked because a launch was already started with this picture. Put the earlier links back, or draw a new one to change them.', uri_too_long: 'That name is too long.', launch_unavailable: 'Launching is not switched on for this site.', founder_only: 'This picture can only be launched by the ' + window.PAD.platform + ' founder wallet.' };
+        const why = { ticker_taken: 'This ticker is already taken on this launchpad. Every coin here must be an original, so pick a different ticker.' + by, name_taken: 'This name is already taken on this launchpad, or is too close to one that is. Pick a different name.' + by, picture_taken: 'This picture is the same as, or very close to, one already launched here. Use your own picture.' + by, picture_required: 'Add a picture for your coin first.', not_allowed: data && data.reason === 'not_listed' ? 'This launchpad is private. Only wallets on its list can launch coins here.' : 'This wallet cannot launch coins on this launchpad.', pair_buy_not_ready: 'Buying your own coin at launch is not available yet on a launchpad with a pool pair other than SOL. Launch without a first buy.', pair_not_found: 'This launchpad\'s pool pair was not found on this network.', holder_not_ready: 'Holder-rewards coins are not switched on for this site yet.', holder_buy_not_ready: 'Buying your own coin at launch is not available yet on a holder-rewards launchpad. Launch without a first buy.', holder_pair_unsupported: 'Holder rewards cannot be combined with a pool pair.', pair_not_ready: 'This launchpad uses a pool pair other than SOL, and launching with a pair is not switched on yet.', first_buy_required: 'This launchpad needs you to buy your own coin at launch: at least ' + ((data && data.min) || 0.05) + ' SOL.', rate_limited: 'Too many launches. Wait a minute.', bad_fee_mode: 'Choose how creator fees are shared.', bad_partner: 'Your partner\'s wallet address is not valid.', partner_is_creator: 'Your partner needs a different wallet from yours.', bad_partner_pct: 'Your partner\'s share must be a whole number' + (data && data.max ? ' from 1 to ' + data.max : '') + '.', bad_boost: 'That boost amount is not allowed. Pick one of the options or an amount in range.', bad_name: 'That name is not allowed.', bad_symbol: 'Use 1 to 10 letters or digits for the ticker.', bad_art: 'That picture is no longer available. Make a new one.', bad_amount: 'Buy at launch must be from 0.01 to 5 SOL, or left empty.', bad_links: 'Check your links. A website needs https://, and X takes a handle, a profile link or a post link, and Telegram takes a handle like @yourcoin.', links_locked: 'Your links are locked because a launch was already started with this picture. Put the earlier links back, or draw a new one to change them.', uri_too_long: 'That name is too long.', launch_unavailable: 'Launching is not switched on for this site.', founder_only: 'This picture can only be launched by the ' + window.PAD.platform + ' founder wallet.' };
         say((data && why[data.error]) || 'Could not prepare the launch. Try again.', true);
         busy = false; render();
         return;
@@ -139,7 +162,7 @@
       if (state === 'failed') { say('The transaction failed on-chain. Check the transaction link for the reason. Nothing was created.', true); busy = false; render(); return; }
       if (state !== 'confirmed') { say('Not confirmed yet. Check the transaction link in a minute.', true); busy = false; render(); return; }
       document.dispatchEvent(new CustomEvent('animalpad:launched', { detail: { pool: data.pool } }));
-      pending = { data: data, firstBuy: firstBuy, atomic: Boolean(data.atomic) };
+      pending = { data: data, firstBuy: firstBuy, atomic: Boolean(data.atomic), signature: signature };
       await runSteps();
     } catch (err) {
       const m = err && err.message ? String(err.message) : '';

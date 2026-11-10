@@ -322,3 +322,60 @@ test('the official coin is the newest launch of its picture that really exists, 
   for (const e of all) { if ((await l.detail(e.pool)).status === 200) real.push(e.symbol); }
   assert.deepEqual(real, ['AN8']);
 });
+
+// ---- Boost: the Promoted row ----
+const boostEntry = (n, sol, minutes, extra) => entry(n, Object.assign({ boostLamports: Math.round(sol * 1e9), boostMin: minutes }, extra));
+
+test('a boost does nothing until its payment is confirmed, and each payment signature starts only one boost', async () => {
+  let t = 5000000;
+  const onChain = new Set([entry(1).pool, entry(2).pool]);
+  const l = createLaunches({ inspect: chain(onChain), now: () => t, logger: quiet, listTtlMs: 0 });
+  l.record(boostEntry(1, 0.2, 31)); l.record(boostEntry(2, 0.2, 31));
+  assert.deepEqual(await l.promoted(), []);
+  assert.deepEqual(l.boostIntent(entry(1).pool), { creator: CREATOR, lamports: 200000000, minutes: 31 });
+  assert.equal(l.startBoost(entry(1).pool, 'SIG-A'), true);
+  assert.equal(l.startBoost(entry(1).pool, 'SIG-A'), true);   // asking twice is fine
+  assert.equal(l.startBoost(entry(1).pool, 'SIG-B'), false);  // but a different signature does not restart it
+  assert.equal(l.startBoost(entry(2).pool, 'SIG-A'), false);  // and a signature cannot pay for two coins
+  assert.equal(l.boostIntent(entry(1).pool), null);
+  assert.deepEqual((await l.promoted()).map(x => x.name), ['Animal 1']);
+});
+
+test('promoted coins are ranked by SOL paid per hour, an earlier start wins a tie, and only the top slots show', async () => {
+  let t = 6000000;
+  const pools = [1, 2, 3, 4, 5].map(n => entry(n).pool);
+  const l = createLaunches({ inspect: chain(new Set(pools)), now: () => t, logger: quiet, listTtlMs: 0 });
+  l.record(boostEntry(1, 1.98, 1440));  // 0.083 per hour
+  l.record(boostEntry(2, 0.1, 10));     // 0.6 per hour
+  l.record(boostEntry(3, 0.3, 62));     // 0.29 per hour
+  l.record(boostEntry(4, 0.1, 10));     // 0.6 per hour, started later
+  l.record(boostEntry(5, 0.57, 181));   // 0.189 per hour
+  for (const n of [1, 2, 3]) { l.startBoost(entry(n).pool, 'S' + n); t += 1000; }
+  l.startBoost(entry(4).pool, 'S4'); t += 1000; l.startBoost(entry(5).pool, 'S5');
+  const top = await l.promoted(4);
+  assert.deepEqual(top.map(x => x.name), ['Animal 2', 'Animal 4', 'Animal 3', 'Animal 5']);
+  assert.equal(top[0].perHour, 0.6);
+  assert.equal(l.rateToBeat(4), 0.189); // the lowest rate that still has a slot
+  assert.equal(l.rateToBeat(8), 0);     // room left
+});
+
+test('a boost ends when its time is up', async () => {
+  let t = 7000000;
+  const l = createLaunches({ inspect: chain(new Set([entry(1).pool])), now: () => t, logger: quiet, listTtlMs: 0 });
+  l.record(boostEntry(1, 0.1, 10)); l.startBoost(entry(1).pool, 'S1');
+  t += 9 * 60000; assert.equal((await l.promoted()).length, 1);
+  t += 2 * 60000; assert.equal((await l.promoted()).length, 0);
+});
+
+test('the fee choice made at launch is kept, and a half-valid partner choice falls back to creator rewards', () => {
+  const l = createLaunches({ inspect: chain(new Set()), logger: quiet });
+  l.record(entry(1, { feeMode: 'partner', partner: 'So11111111111111111111111111111111111111112', partnerPct: 20 }));
+  l.record(entry(2, { feeMode: 'partner', partner: 'nope', partnerPct: 20 }));
+  l.record(entry(3, { feeMode: 'holder' }));
+  l.record(entry(4));
+  assert.deepEqual(l.feeOf(entry(1).pool), { mode: 'partner', partner: 'So11111111111111111111111111111111111111112', partnerPct: 20 });
+  assert.equal(l.feeOf(entry(2).pool).mode, 'creator');
+  assert.equal(l.feeOf(entry(3).pool).mode, 'holder');
+  assert.equal(l.feeOf(entry(4).pool).mode, 'creator');
+  assert.equal(l.feeOf('unknown').mode, 'creator');
+});

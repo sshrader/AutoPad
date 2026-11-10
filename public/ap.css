@@ -110,3 +110,35 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 
 /* One site, one launchpad: there is no separate pad-owner share to show */
 .feekey .k-owner, .feebar .f-owner { display: none; }
+
+/* Launch form choices: fee options and the boost */
+.opt { margin: 0; padding: 14px 16px 16px; border: 1px solid var(--line); border-radius: var(--r); background: var(--paper); display: grid; gap: 12px; min-width: 0; }
+.opt legend { padding: 0 6px; font: 700 .95rem/1.2 var(--display); letter-spacing: -.01em; }
+.choices { display: grid; gap: 8px; }
+.choice { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--raise); cursor: pointer; }
+.choice:has(input:checked) { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.choice input { margin-top: 4px; accent-color: var(--accent); }
+.choice b { display: block; font-weight: 700; }
+.choice i { display: block; font-style: normal; font-size: .9rem; color: var(--muted); }
+.choice.off { cursor: not-allowed; opacity: .6; }
+.soon { font: 600 .72rem/1 var(--mono); font-style: normal; padding: 3px 6px; margin-left: 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); vertical-align: middle; }
+.partner { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px; padding: 0 0 2px 32px; }
+.partner label { display: grid; gap: 4px; font-size: 14px; font-weight: 600; min-width: 0; }
+@media (max-width: 560px) { .partner { grid-template-columns: minmax(0, 1fr); padding-left: 0; } }
+.tiers { display: flex; flex-wrap: wrap; gap: 8px; }
+.tier { display: grid; gap: 2px; min-width: 88px; padding: 9px 12px; text-align: left; font: inherit; color: var(--text); background: var(--raise); border: 1px solid var(--line); border-radius: var(--r-sm); cursor: pointer; }
+.tier b { font-weight: 700; }
+.tier i { font: 500 .82rem var(--mono); font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tier:hover { border-color: var(--accent); }
+.tier.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--raise)); box-shadow: inset 3px 0 0 var(--accent); }
+
+/* The Promoted row: always labeled as paid placement */
+.promo .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.promo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 14px; }
+.promo-card { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); text-decoration: none; color: var(--text); min-width: 0; }
+.promo-card:hover { border-color: var(--accent); }
+.promo-card img, .promo-card .noimg { width: 56px; height: 56px; border-radius: var(--r-sm); object-fit: cover; background: var(--soft); display: grid; place-items: center; font: 700 1.4rem var(--display); color: var(--muted); }
+.promo-t { display: grid; gap: 1px; min-width: 0; }
+.promo-t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.promo-t i { font: 500 .85rem var(--mono); font-style: normal; color: var(--muted); }
+.promo-t em { font-size: .78rem; font-style: normal; color: var(--accent); }

@@ -78,6 +78,7 @@ function fakeLoad(state) {
     async getAccountInfo(pk) { const a = state.accounts.get(pk.toBase58()); return a ? { data: a.data, lamports: a.lamports || 1000000, owner: new PublicKey(a.owner || pump.PUMP) } : null; }
     async getLatestBlockhash() { return { blockhash: 'BLOCKHASH' }; }
     async getSignatureStatuses(sigs) { return { value: sigs.map(s => state.statuses.get(s) || null) }; }
+    async getTransaction(sig) { return state.txs && state.txs.get(sig) || null; }
     async getTokenAccountBalance(pk) { const v = state.tokens.get(pk.toBase58()); if (v === undefined) throw new Error('could not find account'); return { value: { amount: v } }; }
     async getMinimumBalanceForRentExemption() { return 1000000; }
   }

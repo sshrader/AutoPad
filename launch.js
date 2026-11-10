@@ -8,6 +8,7 @@
 //
 // web3.js is loaded only when someone launches, so a problem with it can never stop the website from starting.
 
+const { createBoost } = require('./boost');
 const pump = require('./pump.js');
 
 const SYMBOL_RE = /^[A-Za-z0-9]{1,10}$/;
@@ -66,6 +67,8 @@ function createLauncher(opts) {
   const holderFeeSol = Number.isFinite(Number(o.holderLaunchFeeSol)) && Number(o.holderLaunchFeeSol) >= 0 ? Number(o.holderLaunchFeeSol) : 0.05;
   const platformPct = o.platformSharePct === undefined || o.platformSharePct === '' ? 20 : Number(o.platformSharePct);
   if (!Number.isInteger(platformPct) || platformPct < 1 || platformPct > 50) throw new Error('PLATFORM_SHARE_PCT must be a whole number from 1 to 50.');
+  // Optional paid boost to the home page's Promoted row. The fee is paid to the platform wallet inside the launch transaction.
+  const boostCfg = o.boost || createBoost({});
   const enabled = Boolean(platformWallet);
   // A shared address lookup table (made once by devnet/12-make-lookup-table.mjs) lets the coin's creation and the
   // creator's first buy fit in ONE transaction, so nobody can buy in between. Without it a launch is up to three steps.
@@ -202,6 +205,11 @@ function createLauncher(opts) {
     if (artId && ctx && ctx.founder && artId === ctx.founder.id && b.creator !== ctx.founder.wallet) return { status: 403, body: { error: 'founder_only' } };
     const firstBuySol = parseBuy(b.firstBuySol);
     if (firstBuySol === null) return { status: 400, body: { error: 'bad_amount' } };
+    let boost = null;
+    if (b.boostSol !== undefined && b.boostSol !== null && b.boostSol !== '' && Number(b.boostSol) !== 0) {
+      boost = boostCfg.quote(b.boostSol);
+      if (!boost) return { status: 400, body: { error: 'bad_boost' } };
+    }
     const base = String((ctx && ctx.baseUrl) || '').replace(/\/+$/, '');
     const uri = base + '/meta.json?n=' + encodeURIComponent(name) + '&s=' + encodeURIComponent(symbol) + (artId ? '&i=' + artId : '');
     if (!/^https?:\/\//.test(base) || uri.length > MAX_URI) return { status: 400, body: { error: 'uri_too_long' } };
@@ -226,8 +234,11 @@ function createLauncher(opts) {
       const mint = mintKp.publicKey.toBase58();
       const table = await getTable(c);
       const atomic = Boolean(table);
-      let ixs = budget(c, CU.create).concat([ix]);
-      if (holder && holderFeeSol > 0) ixs.push(c.B.transferSol({ from: creatorPk, to: platformWallet, lamports: Math.round(holderFeeSol * 1e9) }));
+      // Fees paid to the platform inside the same transaction that creates the coin.
+      const fees = [];
+      if (holder && holderFeeSol > 0) fees.push(c.B.transferSol({ from: creatorPk, to: platformWallet, lamports: Math.round(holderFeeSol * 1e9) }));
+      if (boost && b.creator !== platformWallet) fees.push(c.B.transferSol({ from: creatorPk, to: platformWallet, lamports: boost.lamports }));
+      let ixs = budget(c, CU.create).concat([ix], fees);
       if (atomic && firstBuySol > 0) {
         // The coin does not exist yet, so the buy is priced against a fresh curve from pump.fun's global settings.
         const glob = await readGlobal(c);
@@ -235,10 +246,10 @@ function createLauncher(opts) {
           virtual_token_reserves: glob.initial_virtual_token_reserves, virtual_quote_reserves: glob.initial_virtual_sol_reserves,
           real_token_reserves: glob.initial_real_token_reserves
         };
-        ixs = budget(c, CU.create + CU.buy).concat([ix], buyInstructions(c, creatorPk, mint, fresh, firstBuySol, 1000, glob));
+        ixs = budget(c, CU.create + CU.buy).concat([ix], fees, buyInstructions(c, creatorPk, mint, fresh, firstBuySol, 1000, glob));
       }
       const transaction = await toTx(c, ixs, creatorPk, [mintKp], table);
-      return { status: 200, body: { transaction, mint, pool: mint, curve: c.B.bondingCurveOf(mintKp.publicKey).toBase58(), firstBuySol, atomic, pair: quote ? quote.mint.toBase58() : '', holderRewards: holder, launchFeeSol: holder ? holderFeeSol : 0, split: holder ? { creatorPct: 0, ownerPct: 0, platformPct: 0 } : splitFor(ctx && ctx.pad), cluster } };
+      return { status: 200, body: { transaction, mint, pool: mint, curve: c.B.bondingCurveOf(mintKp.publicKey).toBase58(), firstBuySol, atomic, pair: quote ? quote.mint.toBase58() : '', holderRewards: holder, launchFeeSol: holder ? holderFeeSol : 0, boost: boost ? { sol: boost.sol, minutes: boost.minutes, lamports: boost.lamports } : null, split: holder ? { creatorPct: 0, ownerPct: 0, platformPct: 0 } : splitFor(ctx && ctx.pad), cluster } };
     } catch (err) {
       logger.error('Launch prepare failed: ' + (err && err.stack ? err.stack : 'unknown error'));
       return { status: 502, body: { error: 'prepare_failed' } };
@@ -533,6 +544,36 @@ function createLauncher(opts) {
   }
 
 
+
+  // Did the creator really pay for the boost? The page sends the launch transaction's signature once it has confirmed; the payment
+  // is checked in that transaction itself: paid by the creator, the new coin in it, and the platform wallet's balance up by the fee.
+  const SIG_RE = /^[1-9A-HJ-NP-Za-km-z]{60,100}$/;
+  async function verifyBoost(input, ctx) {
+    if (!enabled) return { status: 503, body: { error: 'launch_unavailable' } };
+    if (!allowRead((ctx && ctx.ip) || 'unknown')) return { status: 429, body: { error: 'rate_limited' } };
+    const b = input && typeof input === 'object' ? input : {};
+    if (typeof b.pool !== 'string' || !B58_RE.test(b.pool) || typeof b.sig !== 'string' || !SIG_RE.test(b.sig) || typeof b.creator !== 'string' || !B58_RE.test(b.creator) || !Number.isInteger(b.lamports) || b.lamports <= 0) return { status: 400, body: { error: 'bad_request' } };
+    // The platform's own wallet launching a coin pays itself, so there is nothing to see on-chain and nothing to charge.
+    if (b.creator === platformWallet) return { status: 200, body: { paid: true } };
+    try {
+      const c = await chain();
+      const t = await c.connection.getTransaction(b.sig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 });
+      if (!t || !t.meta) return { status: 404, body: { error: 'tx_not_found' } };
+      if (t.meta.err) return { status: 409, body: { error: 'tx_failed' } };
+      const msg = t.transaction.message;
+      let keys;
+      if (typeof msg.getAccountKeys === 'function') { const ak = msg.getAccountKeys({ accountKeysFromLookups: t.meta.loadedAddresses }); keys = []; for (let i = 0; i < ak.length; i++) keys.push(ak.get(i).toBase58()); }
+      else keys = (msg.accountKeys || []).map(k => (typeof k === 'string' ? k : k.toBase58()));
+      const at = keys.indexOf(platformWallet);
+      const gained = at < 0 ? 0 : Number(t.meta.postBalances[at]) - Number(t.meta.preBalances[at]);
+      if (keys[0] !== b.creator || !keys.includes(b.pool) || gained < b.lamports) return { status: 409, body: { error: 'boost_not_paid' } };
+      return { status: 200, body: { paid: true } };
+    } catch (err) {
+      logger.error('Boost check failed: ' + (err && err.stack ? err.stack : 'unknown error'));
+      return { status: 502, body: { error: 'boost_check_failed' } };
+    }
+  }
+
   // The pairing tokens pump.fun allows for new coins (its "custom pair" list), read from its quote-control account.
   // PAIRS_RPC_URL can point at mainnet so the list can be previewed while launching runs on devnet. Cached for an hour.
   const pairsRpc = o.pairsRpcUrl || rpcUrl;
@@ -678,7 +719,7 @@ function createLauncher(opts) {
     }
   }
 
-  return { info, lookupAddresses, prepare, step, status, pool, inspect, buy, fees, distribute, partnerFees, activity, pairs, pairPrices };
+  return { info, lookupAddresses, prepare, verifyBoost, step, status, pool, inspect, buy, fees, distribute, partnerFees, activity, pairs, pairPrices };
 }
 
 // Metadata for the token, read by wallets and explorers. Built from the link and the stored animal, so the

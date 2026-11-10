@@ -17,6 +17,27 @@ Limits per run: at most 8 payouts and 100 coins looked at, carrying on from wher
 
 Public, read-only routes: `GET /api/autoclaim` (status, no secrets) and `GET /api/payouts?limit=&pool=`.
 
+## Fee options at launch
+
+The launch form lets the creator choose how creator fees work. The choice is checked on the server, kept with the coin, and fixed on-chain when the coin is created.
+
+| Option | What happens |
+| --- | --- |
+| **Creator rewards** (default) | The creator keeps 90% and AutoPay 10%, paid out automatically by the keeper. |
+| **Share with a wallet** | The creator names a partner wallet and a whole-number share, 1 to 40% (50 minus the platform share). The platform still takes 10%. The creator keeps the rest. |
+| **Holder rewards** | pump.fun pays all creator fees to the coin's holders. A flat launch fee (`HOLDER_LAUNCH_FEE_SOL`, default 0.05 SOL) goes to the platform wallet, there is no split, and no first buy at launch. Greyed out as "Coming soon" unless `HOLDER_REWARDS=yes`. Only tried on devnet so far: test it before turning it on. |
+
+The keeper skips holder-rewards coins, since there is nothing to pay out for them.
+
+## Boost: the Promoted row
+
+At launch a creator can pay a flat fee to put the coin in a labeled **Promoted** row above the newest coins. The fee goes to the platform wallet inside the launch transaction.
+
+- **Price curve:** `price = 0.1 SOL x (minutes / 10) ^ 0.6`, so longer boosts cost more in total and less per hour. Buttons: 10 min 0.10, 30 min 0.20, 1 h 0.30, 3 h 0.57, 12 h 1.31, 24 h 1.98 SOL. A custom amount from 0.10 to 1.98 SOL runs the same curve in reverse (0.5 SOL is about 2 h 26 min). `BOOST_PRICE_MULT` scales every price (0.5 is half price).
+- **Ranking:** by SOL paid per hour, so short boosts sit above long ones while they last; an earlier start wins a tie. There are 4 slots. A boost below the top 4 keeps running out its time, and the form warns when all slots are taken.
+- **Payment is verified on-chain.** After the launch transaction confirms, the page sends its signature to `POST /api/launch/boost`. The server reads that transaction and only starts the boost if the creator paid, the new coin is in it, and the platform wallet's balance rose by the fee. One signature can start one boost. Fees are not refunded.
+- Routes: `GET /api/promoted`, `GET /api/boost/config`, `POST /api/launch/boost`.
+
 ## Set up the keeper wallet (once)
 
 Never paste the key into chat, an issue or a commit. It lives only in a file on your computer and in Railway's variables.
@@ -40,6 +61,9 @@ npm test
 | `KEEPER_SECRET_KEY` | The keeper wallet file's contents (`[12,34,...]`). Auto-claim is off without it. Secret: Railway only. |
 | `AUTOCLAIM_MIN_SOL` | Pay out a coin once this much is waiting. Default 0.02. |
 | `AUTOCLAIM_EVERY_MIN` | Minutes between checks. Default 15. |
+| `BOOST_PRICE_MULT` | Scales every boost price. Default 1. Start lower (for example 0.5) until the site has visitors. |
+| `HOLDER_REWARDS` | `yes` switches on the Holder rewards option on the launch form. Leave unset until it has been tested. |
+| `HOLDER_LAUNCH_FEE_SOL` | Flat launch fee for holder-rewards coins. Default 0.05. |
 | `LAUNCH_CLUSTER` | `devnet` (default) or `mainnet-beta`. |
 | `MAINNET_ENABLED` | Must be `yes` for `mainnet-beta`. |
 | `LAUNCH_RPC_URL` | RPC address. Mainnet needs a dedicated one. The keeper uses it too. |
@@ -50,7 +74,7 @@ npm test
 | `ORIGINALS_CHECK` | `yes` turns on the one-coin-per-ticker/name/picture rule. |
 | `PUBLIC_URL`, `PAD`, `LAUNCHES_FILE`, `HIDE_POOLS`, `ART_DIR`, `VERIFY_SECRET`, picture-studio keys | Optional; as in the code. |
 
-Leave `PLATFORM_SHARE_PCT`, `PAIRS_*` and `HOLDER_REWARDS` unset.
+Leave `PLATFORM_SHARE_PCT` and `PAIRS_*` unset.
 
 ## Before every mainnet launch
 
@@ -60,9 +84,11 @@ Leave `PLATFORM_SHARE_PCT`, `PAIRS_*` and `HOLDER_REWARDS` unset.
 - [ ] The keeper wallet has a few cents of SOL and `/api/autoclaim` shows `enabled: true` and `lowGas: false`.
 - [ ] The launching wallet has enough real SOL for the launch fees plus the dev buy.
 - [ ] After the first launch, check the dev buy is the **first** trade on the coin.
+- [ ] Launch one coin with a 10-minute boost and check it appears in the Promoted row and the platform wallet received the fee.
+- [ ] Launch one coin with **Share with a wallet** and check the split on the coin page shows the partner.
 
 ## Pages and routes
 
-`/` the launchpad · `/coin/<pool>` a coin · `/rules` how payouts work · `/admin` platform fee page (platform wallet only) · `/admin/launch` founder coin (`FOUNDER_WALLET` only) · `/api/launch/config` · `/api/autoclaim` · `/api/payouts`.
+`/` the launchpad · `/coin/<pool>` a coin · `/rules` how payouts work · `/admin` platform fee page (platform wallet only) · `/admin/launch` founder coin (`FOUNDER_WALLET` only) · `/api/launch/config` · `/api/autoclaim` · `/api/payouts` · `/api/promoted` · `/api/boost/config`.
 
 The look is in `public/ap.css` (tokens at the top; light and dark), the payout stub in `public/stub.js`, the brand in `pads/autopad.json` and `pads/autopad/assets/`.
