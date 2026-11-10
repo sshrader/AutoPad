@@ -148,7 +148,7 @@ function world(opts) {
   Object.assign(w, opts);
   const launcher = {
     async airdropInfo() {
-      const accounts = [{ account: 'src', owner: CREATOR, amount: w.held, delegate: w.approved > 0n ? KEEPER : null, delegatedAmount: w.approved }]
+      const accounts = (w.noCreator ? [] : [{ account: 'src', owner: CREATOR, amount: w.held, delegate: w.approved > 0n ? KEEPER : null, delegatedAmount: w.approved }])
         .concat(w.holders.map((h, i) => ({ account: 'acct' + i, owner: 'own' + i, amount: BigInt(h), delegate: null, delegatedAmount: 0n })));
       return { curve: w.curve, accounts };
     },
@@ -229,10 +229,11 @@ test('if the creator sold or cancelled, nothing is sent and the airdrop says so'
   assert.equal(store.get(MINT).status, 'failed');
   assert.match(store.get(MINT).reason, /sold or cancelled/);
   assert.equal(w.sends.length, 0);
-  // a launch still landing is given time
+  // a launch still landing (no token account for the creator yet) is given time
+  const late = world({ holders: [BIG, BIG, BIG], noCreator: true, t: 100000000 });
   const s2 = A.createAirdrops({});
-  s2.add(job({ createdAt: w.t - 4000000, afterMinutes: 60 }));
-  await A.createAirdropper({ store: s2, launcher, io, now: () => w.t, logger: quiet, graceMs: 99999999 }).process();
+  s2.add(job({ createdAt: late.w.t - 4000000, afterMinutes: 60 }));
+  await A.createAirdropper({ store: s2, launcher: late.launcher, io: late.io, now: () => late.w.t, logger: quiet, graceMs: 99999999 }).process();
   assert.equal(s2.get(MINT).status, 'scheduled');
 });
 

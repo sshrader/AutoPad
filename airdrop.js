@@ -108,7 +108,7 @@ function createAirdropper(opts) {
     const planned = Array.isArray(job.plan) && job.plan.length > 0;
     if (!planned) {
       if (!mine || approved === 0n) {
-        if (now() < job.createdAt + graceMs) return;       // the launch may still be landing
+        if (!mine && now() < job.createdAt + graceMs) return;   // the creator's token account does not exist yet: the launch may still be landing
         return finish(job, 'failed', 'The creator sold or cancelled the airdrop before it was due.');
       }
       if (info.complete === false) {
