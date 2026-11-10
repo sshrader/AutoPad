@@ -115,7 +115,7 @@
 
     const f = add(body, 'dl', undefined, 'facts');
     function fact(label, node) { add(f, 'dt', label); const dd = add(f, 'dd'); if (typeof node === 'string') dd.textContent = node; else dd.appendChild(node); }
-    if (c.chat !== false) { startReport(box, c); startChat(box, c); }
+    // The AI report and chat boxes are switched off on coin pages.
     const sp = cfg && cfg.split;
     if (c.holderRewards) fact('Creator fees', 'This is a holder-rewards coin: pump.fun pays all creator fees to the coin\'s holders automatically.');
     else if (sp && Number.isFinite(sp.creatorPct) && Number.isFinite(sp.platformPct)) {
