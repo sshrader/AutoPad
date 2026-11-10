@@ -27,7 +27,7 @@
 <main class="wrap">
   <header class="top">
     <a class="brand" href="" id="brand"><img id="pad-logo" alt="" width="30" height="30" hidden>{{name}}</a>
-    <nav class="nav" aria-label="Sections"><a href="#recent">Coins</a><a href="#start">Launch a coin</a><a href="#trade">Trade</a><a href="#about">Fees</a></nav>
+    <nav class="nav" aria-label="Sections"><a href="#recent">Coins</a><a href="#start">Launch a coin</a><a href="#trade">Trade</a><a href="#about">How it works</a></nav>
     <div class="row">
       <span class="chip-net" data-net-only="devnet" title="Devnet: test coins only, no real money">Devnet</span>
       <span class="chip-net live" data-net-only="mainnet-beta" hidden title="Live: real SOL">Live</span>
@@ -205,12 +205,22 @@
   </details>
 
   <section id="about" class="band" aria-labelledby="about-h">
-    <h2 id="about-h">How you get paid</h2>
+    <h2 id="about-h">How it works</h2>
     <ol class="apsteps">
-      <li><b>Launch</b><span>The fee split is written on-chain when the coin is created: the creator keeps the big share, AutoPay takes a small one.</span></li>
+      <li><b>Launch</b><span>Name your coin, add a picture, and launch it on pump.fun. Optionally buy some in the same transaction, so you are the first buyer.</span></li>
+      <li><b>Choose your options</b><span>Pick who gets the creator fees, and add a boost or an airdrop if you want one. These are fixed when the coin is created.</span></li>
       <li><b>Trade</b><span>Every buy and sell on pump.fun adds creator fees. They build up in the coin's fee vault.</span></li>
-      <li><b>Get paid</b><span>AutoPay sends the waiting fees to everyone in the split once a coin has enough waiting to be worth the network fee.</span></li>
+      <li><b>Get paid</b><span>The AutoPay keeper checks every few minutes and sends the waiting fees to everyone in the split. No claiming.</span></li>
     </ol>
+    <h3 class="optsh" id="options-h">Launch options</h3>
+    <div class="optgrid" id="optgrid">
+      <article class="optcard"><h4>Creator rewards</h4><p>The default. You keep <b class="pct-you">90%</b> of creator fees and {{name}} takes <b class="pct-plat">10%</b>. Paid to your wallet automatically.</p></article>
+      <article class="optcard"><h4>Share with a wallet</h4><p>Split your share with a partner, a friend, a dev or a charity: name their wallet and give them up to <b class="pct-max">40%</b>. {{name}} still takes <b class="pct-plat">10%</b>, and you keep the rest.</p></article>
+      <article class="optcard" id="opt-holder"><h4>Holder rewards <span class="soon" id="opt-holder-soon">Coming soon</span></h4><p>All creator fees go to the coin's holders through pump.fun. A flat launch fee of <b id="opt-holder-fee">0.05 SOL</b> applies, and there is no first buy.</p></article>
+      <article class="optcard" id="opt-boost-card"><h4>Boost</h4><p>Pay a flat fee to put your coin in the <b>Promoted</b> row on this page for a set time. <span id="opt-boost-text">Longer boosts cost more in total and less per hour.</span> The highest SOL per hour gets the top spot. Paid placement is always labeled, and the fee is not refunded.</p><ul class="tierlist" id="opt-tiers" hidden></ul></article>
+      <article class="optcard" id="opt-airdrop"><h4>Auto airdrop</h4><p>Set aside part of your first buy for holders. When enough wallets hold your coin <i>and</i> the wait is over, the keeper splits those tokens between them. Your tokens stay in your wallet until then, so this is not a lock: sell them or cancel the permission and nothing is sent.</p></article>
+    </div>
+    <p class="hint optnote">The fee split, boost and airdrop are all checked by the server and written into your launch transaction. {{name}} never holds your fees or your tokens.</p>
     <div class="aboutgrid">
       <div class="stack">
         <p class="about" id="fee-note-how">Every trade pays a creator fee, shared on-chain between the wallets in each coin's split. AutoPay pays it out for you, and a payout can only go to those wallets.</p>
@@ -234,6 +244,7 @@
 <script src="/pad.js"></script>
 <script src="/stub.js"></script>
 <script src="/promo.js"></script>
+<script src="/info.js"></script>
 <script src="/options.js"></script>
 <script src="/launch.js"></script>
 <script src="/trade.js"></script>

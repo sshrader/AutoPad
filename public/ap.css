@@ -98,7 +98,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 .paystub .stub-list li { padding: 5px 0; }
 
 /* How it works: three steps, a real sequence */
-.apsteps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; counter-reset: s; border: 1px solid var(--line); border-radius: var(--r); background: var(--raise); box-shadow: var(--shadow); }
+.apsteps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; counter-reset: s; border: 1px solid var(--line); border-radius: var(--r); background: var(--raise); box-shadow: var(--shadow); }
 .apsteps li { counter-increment: s; padding: 22px 24px; display: grid; gap: 6px; align-content: start; border-left: 1px solid var(--line); min-width: 0; }
 .apsteps li:first-child { border-left: 0; }
 .apsteps li::before { content: counter(s); font: 600 .85rem/1 var(--mono); color: var(--accent); }
@@ -148,3 +148,17 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); outline
 #ad-fields { padding-left: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 560px) { #ad-fields { grid-template-columns: minmax(0, 1fr); } }
 .ad-line { margin: 6px 0; }
+
+.optsh { margin: 34px 0 12px; font-size: 1.1rem; }
+.optgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.optcard { background: var(--raise); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 16px 18px; min-width: 0; }
+.optcard[hidden] { display: none; }
+.optcard h4 { margin: 0 0 6px; font-size: 1rem; }
+.optcard p { margin: 0; color: var(--muted); font-size: .95rem; }
+.optcard p b { color: var(--text); }
+.tierlist { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.tierlist li { font: 500 .8rem var(--mono); font-variant-numeric: tabular-nums; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+.optnote { margin-top: 12px; }
+
+@media (min-width: 900px) { .optgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } #opt-boost-card { grid-column: span 2; } }
+@media (min-width: 761px) and (max-width: 900px) { .apsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .apsteps li:nth-child(3) { border-left: 0; } .apsteps li:nth-child(n+3) { border-top: 1px solid var(--line); } }
