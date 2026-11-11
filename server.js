@@ -70,6 +70,12 @@ function baseUrlFor(req) {
 
 const sortKeys = o => Object.keys(o).sort().reduce((a, k) => { a[k] = o[k]; return a; }, {});
 
+// The browser's visitor id, kept in a cookie, for the one-free-launch-per-visitor rule.
+function visitorOf(req) {
+  const m = /(?:^|;\s*)apfree=([0-9a-f]{32})/.exec(String(req.headers.cookie || ''));
+  return { ip: clientIp(req), cid: m ? m[1] : '', fresh: !m };
+}
+
 function clientIp(req) {
   const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   return fwd || (req.socket && req.socket.remoteAddress) || 'unknown';
@@ -564,7 +570,7 @@ function createApp(opts) {
       if (!freeLaunch) return send(res, 404, JSON.stringify({ error: 'free_off' }), noStore);
       const asked = url.searchParams.get('code');
       if (asked) return send(res, 200, JSON.stringify({ state: freeLaunch.status(asked) }), noStore);
-      return send(res, 200, JSON.stringify(freeLaunch.current()), Object.assign({}, noStore, { 'Cache-Control': 'public, max-age=3' }));
+      return send(res, 200, JSON.stringify(freeLaunch.current(visitorOf(req))), noStore);
     }
     if (pathname === '/api/launch/free' && req.method === 'POST') {
       const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store', Connection: 'close' });
@@ -577,6 +583,7 @@ function createApp(opts) {
         if (recent.length >= 8) return send(res, 429, JSON.stringify({ error: 'rate_limited' }), noStore);
         recent.push(t); freeTries.set(ip, recent);
         if (freeTries.size > 2000) for (const [k, v] of freeTries) if (!v.some(x => t - x < 600000)) freeTries.delete(k);
+        if (freeLaunch.blocked(visitorOf(req))) return send(res, 403, JSON.stringify({ error: 'already_used' }), noStore);
         if (!freeLaunch.valid(body.code)) return send(res, 403, JSON.stringify({ error: 'bad_code' }), noStore);
         let links = {};
         if (body.links !== undefined) {
@@ -585,7 +592,9 @@ function createApp(opts) {
         }
         if (blockedWord(String(body.name || '') + ' ' + String(body.symbol || ''))) return send(res, 400, JSON.stringify({ error: 'blocked_name' }), noStore);
         const input = { code: body.code, name: body.name, symbol: body.symbol, art: body.art };
-        const r = await freeLaunch.launch(input, { ip: ip, baseUrl: baseUrlFor(req), founder: founder, pad: null, hasArt: id => Boolean(art.get(id)) }, (prepared, creator) => {
+        const vis = visitorOf(req);
+        if (vis.fresh) { vis.cid = require('crypto').randomBytes(16).toString('hex'); noStore['Set-Cookie'] = 'apfree=' + vis.cid + '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax' + (String(req.headers['x-forwarded-proto'] || '') === 'https' ? '; Secure' : ''); }
+        const r = await freeLaunch.launch(input, { visitor: vis, ip: ip, baseUrl: baseUrlFor(req), founder: founder, pad: null, hasArt: id => Boolean(art.get(id)) }, (prepared, creator) => {
           if (launches) launches.record({ pool: prepared.pool, mint: prepared.mint, name: cleanText(body.name, 32), symbol: String(body.symbol || '').replace(/^\$/, '').trim().toUpperCase(), creator: creator, art: body.art, pad: '', preset: '', devBuySol: 0, feeMode: 'creator', partner: '', partnerPct: 0, boostLamports: 0, boostMin: 0 });
           if (typeof body.art === 'string' && art.record(body.art)) { if (Object.keys(links).length) art.setLinks(body.art, links, false); art.pin(body.art); }
         });
@@ -1091,7 +1100,7 @@ if (require.main === module) {
   // Free test launches: devnet only, and only with a keeper wallet to pay for them. Switch off with FREE_LAUNCH=no.
   let freeLaunch = null;
   if (keeperIo && cluster === 'devnet' && launcher.info().enabled && env('FREE_LAUNCH') !== 'no') {
-    freeLaunch = createFreeLaunch({ launcher, io: keeperIo, admins: [env('PLATFORM_FEE_WALLET') || pad.fees.wallet, founderWallet], file: dataDir ? path.join(dataDir, 'freecodes.json') : '' });
+    freeLaunch = createFreeLaunch({ perVisitor: env('FREE_PER_VISITOR') === '' ? undefined : Number(env('FREE_PER_VISITOR')), launcher, io: keeperIo, admins: [env('PLATFORM_FEE_WALLET') || pad.fees.wallet, founderWallet], file: dataDir ? path.join(dataDir, 'freecodes.json') : '' });
     console.log('Free test launches on: codes are made on the admin page.');
   }
   const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, airdrops, freeLaunch, boost, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });

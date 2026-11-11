@@ -25,6 +25,8 @@ function createFreeLaunch(opts) {
   const ttlMs = o.ttlMs || 7 * 86400000;
   const maxOpen = o.maxOpen || 10;
   const file = o.file || '';
+  const perVisitor = Number.isInteger(o.perVisitor) && o.perVisitor >= 0 ? o.perVisitor : 1;   // free launches one visitor may make; 0 = no limit
+  const hashIp = ip => crypto.createHash('sha256').update('autopay-free:' + String(ip || '')).digest('hex').slice(0, 24);
 
   let codes = {};
   if (file) { try { const d = JSON.parse(fs.readFileSync(file, 'utf8')); if (d && typeof d === 'object') codes = d; } catch (e) { /* first run */ } }
@@ -57,6 +59,14 @@ function createFreeLaunch(opts) {
     return { status: 200, body: { code: made[0], codes: made, expiresAt: now() + ttlMs, open: open.length + n } };
   }
 
+  // How many free launches this visitor has already made. A visitor is the same browser (a cookie) or the same network address.
+  function usedBy(v) {
+    if (!v) return 0;
+    const h = v.ip ? hashIp(v.ip) : '';
+    return Object.keys(codes).filter(k => codes[k].usedAt && codes[k].by && ((h && codes[k].by.ip === h) || (v.cid && codes[k].by.cid === v.cid))).length;
+  }
+  const blocked = v => perVisitor > 0 && usedBy(v) >= perVisitor;
+
   const valid = code => live(codes[norm(code)]) && !codes[norm(code)].busy;
 
   // Launch one coin with a code. `prepare` is the usual launch input without a creator; onPrepared lets the server record the coin.
@@ -64,6 +74,7 @@ function createFreeLaunch(opts) {
     const key = norm(input && input.code);
     const e = codes[key];
     if (!io || !live(e) || e.busy) return { status: 403, body: { error: 'bad_code' } };
+    if (blocked(ctx && ctx.visitor)) return { status: 403, body: { error: 'already_used' } };
     e.busy = true;
     let mint = '';
     try {
@@ -82,13 +93,15 @@ function createFreeLaunch(opts) {
         await io.signSend(s.body.transaction);
         if (i === 13) throw new Error('fee split did not finish');
       }
-      e.usedAt = now(); e.mint = mint; delete e.busy; save();
+      e.usedAt = now(); e.mint = mint; delete e.busy;
+      if (ctx && ctx.visitor) e.by = { ip: hashIp(ctx.visitor.ip), cid: ctx.visitor.cid || '' };
+      save();
       return { status: 200, body: { mint, pool: mint, creator: io.payer, cluster: r.body.cluster } };
     } catch (err) {
       logger.error('Free launch failed: ' + (err && err.message));
       delete e.busy;
       // Once the coin exists the code is spent, so it cannot be used to make a second one.
-      if (mint) { e.usedAt = now(); e.mint = mint; e.partial = true; save(); return { status: 502, body: { error: 'free_partial', mint } }; }
+      if (mint) { e.usedAt = now(); e.mint = mint; e.partial = true; if (ctx && ctx.visitor) e.by = { ip: hashIp(ctx.visitor.ip), cid: ctx.visitor.cid || '' }; save(); return { status: 502, body: { error: 'free_partial', mint } }; }
       return { status: 502, body: { error: 'free_failed' } };
     }
   }
@@ -103,7 +116,8 @@ function createFreeLaunch(opts) {
   }
 
   // The newest code is shown to every visitor: one person who uses it gets the free launch, then it reads as used.
-  function current() {
+  function current(visitor) {
+    if (blocked(visitor)) return { state: 'claimed', left: 0 };
     const liveKeys = Object.keys(codes).filter(k => live(codes[k])).sort((a, b) => codes[a].at - codes[b].at);
     if (liveKeys.length) { const k = liveKeys.find(x => status(x) === 'ready') || liveKeys[0]; return { state: status(k), code: pretty(k), left: liveKeys.length, expiresAt: codes[k].at + ttlMs }; }
     let key = '';
@@ -111,7 +125,7 @@ function createFreeLaunch(opts) {
     return key ? { state: status(key), left: 0, usedAt: codes[key].usedAt || 0 } : { state: 'none', left: 0 };
   }
 
-  return { issue, launch, valid, status, current, admins, messageFor };
+  return { issue, launch, valid, status, current, blocked, admins, messageFor };
 }
 
 module.exports = { createFreeLaunch, messageFor };

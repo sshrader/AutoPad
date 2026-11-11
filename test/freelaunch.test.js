@@ -142,3 +142,32 @@ test('several codes can be made at once; visitors see them one at a time, oldest
   const ts = 1000000;
   assert.equal(s.fl.issue({ wallet: s.admin.address, ts, count: 5, signature: s.admin.sign(messageFor(s.admin.address, ts, 1)) }).status, 401);
 });
+
+test('one free launch per visitor: the same browser or the same network address is refused a second one', async () => {
+  const s = setup();
+  const codes = s.ask(4).body.codes;
+  const v1 = { ip: '1.1.1.1', cid: 'a'.repeat(32) };
+  assert.equal((await s.fl.launch({ code: codes[0], name: 'a', symbol: 'A' }, { visitor: v1 })).status, 200);
+  assert.equal(s.fl.current(v1).state, 'claimed');
+  const again = await s.fl.launch({ code: codes[1], name: 'b', symbol: 'B' }, { visitor: v1 });
+  assert.equal(again.body.error, 'already_used');
+  // same browser from a new address, and a new browser from the same address, are both the same visitor
+  assert.equal(s.fl.blocked({ ip: '2.2.2.2', cid: v1.cid }), true);
+  assert.equal(s.fl.blocked({ ip: '1.1.1.1', cid: 'b'.repeat(32) }), true);
+  // somebody else is fine, and sees the next code
+  const v2 = { ip: '3.3.3.3', cid: 'c'.repeat(32) };
+  assert.equal(s.fl.current(v2).code, codes[1]);
+  assert.equal((await s.fl.launch({ code: codes[1], name: 'c', symbol: 'C' }, { visitor: v2 })).status, 200);
+});
+
+test('the per-visitor limit can be raised or removed for testing', async () => {
+  const admin = wallet();
+  const io = { payer: key(), async signSend() { return 's'; } };
+  const launcher = { async prepare() { return { status: 200, body: { mint: 'M', pool: 'M', transaction: 't' } }; }, async step() { return { status: 200, body: { step: 'done' } }; } };
+  const fl = createFreeLaunch({ launcher, io, admins: [admin.address], now: () => 1000000, logger: quiet, perVisitor: 0 });
+  const ts = 1000000;
+  const made = fl.issue({ wallet: admin.address, ts, count: 2, signature: admin.sign(messageFor(admin.address, ts, 2)) }).body.codes;
+  const v = { ip: '9.9.9.9', cid: 'd'.repeat(32) };
+  assert.equal((await fl.launch({ code: made[0], name: 'a', symbol: 'A' }, { visitor: v })).status, 200);
+  assert.equal((await fl.launch({ code: made[1], name: 'b', symbol: 'B' }, { visitor: v })).status, 200);
+});
