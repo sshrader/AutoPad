@@ -20,8 +20,8 @@
   }
   function tags(c, h) {
     if (c.flagship) h.appendChild(el('span', 'tag gold', 'FLAGSHIP'));
-    if (c.simulated) h.appendChild(el('span', 'tag sim', 'DEMO · SIMULATED'));
-    else if (!c.launched) h.appendChild(el('span', 'tag', 'NOT LAUNCHED'));
+    if (c.simulated) return;
+    if (!c.launched) h.appendChild(el('span', 'tag', 'NOT LAUNCHED'));
     else h.appendChild(el('span', 'tag', 'LIVE · ' + (cfg.cluster === 'mainnet-beta' ? 'MAINNET' : 'DEVNET')));
   }
   function card(c) {
@@ -33,7 +33,7 @@
     var s = stat(c), n = el('div', 'num');
     if (s) { n.appendChild(el('b', '', fmt(s.collected, 2) + ' SOL')); n.appendChild(document.createTextNode('fees collected')); } else n.appendChild(document.createTextNode(c.launched ? 'loading…' : 'soon'));
     a.appendChild(n);
-    if (s && typeof s.progress === 'number') { var m = el('div', 'meter'), i = el('i'); i.style.width = Math.max(2, Math.min(100, s.progress)) + '%'; m.appendChild(i); a.appendChild(m); }
+    if (s && typeof s.progress === 'number') { var m = el('div', 'meter'), i = el('i'); i.style.width = (s.progress > 0 ? Math.max(2, Math.min(100, s.progress)) : 0) + '%'; m.appendChild(i); a.appendChild(m); }
     return a;
   }
   function setNet() {
@@ -58,7 +58,6 @@
       var head = el('div', 'hero'); var row = el('div'); row.style.cssText = 'display:flex;gap:1rem;align-items:center;flex-wrap:wrap';
       row.appendChild(badge(c)); var h = el('h1', '', c.name + ' '); h.style.fontSize = 'clamp(1.7rem,4vw,2.4rem)'; h.appendChild(el('span', 'mono', '$' + c.symbol)); row.appendChild(h); head.appendChild(row);
       var tg = el('div'); tg.style.marginTop = '.5rem'; tags(c, tg); head.appendChild(tg); head.appendChild(el('p', '', c.description)); root.appendChild(head);
-      if (c.simulated) { var n = el('div', 'note', 'This is a demo coin. The numbers are simulated and there is no token or pool behind it.'); root.appendChild(n); }
       var s = stat(c), p = panel('Curve and fees');
       if (!c.launched) p.appendChild(el('p', '', 'Not launched yet.'));
       else if (!s) p.appendChild(el('p', '', 'Live numbers are not available right now.'));
@@ -78,7 +77,7 @@
       if (!c.simulated && c.pool) g2.appendChild(cell('Pool', link(exp('address', c.pool), short(c.pool))));
       w.appendChild(g2); root.appendChild(w);
       var q = panel('Payouts'); 
-      if (c.simulated) q.appendChild(el('p', 'sub', 'Simulated: a demo coin has no payouts on chain.'));
+      if (c.simulated) q.appendChild(el('p', 'sub', 'No payouts yet.'));
       else if (!pays.length) q.appendChild(el('p', 'sub', 'No payouts logged yet. The fee claimer runs on a schedule and every payout appears here.'));
       else {
         var wrap = el('div', 'tblwrap'), t = el('table'), hd = el('tr'); ['When', 'Creator got', 'Platform got', 'Mode', 'Transaction'].forEach(function (x) { hd.appendChild(el('th', '', x)); }); t.appendChild(hd);
