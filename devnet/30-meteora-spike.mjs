@@ -6,14 +6,21 @@
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token';
 import BN from 'bn.js';
-import {
-  DynamicBondingCurveClient, buildCurveWithMarketCap, deriveDbcPoolAddress,
-  ActivationType, CollectFeeMode, BaseFeeMode, MigrationFeeOption, MigrationOption,
-  TokenDecimal, TokenType, TokenUpdateAuthorityOption,
-} from '@meteora-ag/dynamic-bonding-curve-sdk';
+import * as sdk from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { connection, IS_MAIN, makeKey, loadKey, readState, writeState, send, sol, arg } from './lib.mjs';
 
 if (IS_MAIN) { console.error('This spike is devnet only.'); process.exit(1); }
+const { DynamicBondingCurveClient, buildCurveWithMarketCap, deriveDbcPoolAddress } = sdk;
+// Enum names differ between SDK versions, so look each up and fall back to the program's own numbers.
+const pick = (name, key, fallback) => (sdk[name] && sdk[name][key] !== undefined ? sdk[name][key] : fallback);
+const ActivationType = { Slot: pick('ActivationType', 'Slot', 0) };
+const CollectFeeMode = { QuoteToken: pick('CollectFeeMode', 'QuoteToken', 0) };
+const BaseFeeMode = { FeeSchedulerLinear: pick('BaseFeeMode', 'FeeSchedulerLinear', 0) };
+const MigrationOption = { MET_DAMM_V2: pick('MigrationOption', 'MET_DAMM_V2', 1) };
+const MigrationFeeOption = { FixedBps100: pick('MigrationFeeOption', 'FixedBps100', 2) };
+const TokenDecimal = { SIX: pick('TokenDecimal', 'SIX', 6), NINE: pick('TokenDecimal', 'NINE', 9) };
+const TokenType = { Token2022: pick('TokenType', 'Token2022', 1) };
+const TokenUpdateAuthorityOption = { Immutable: pick('TokenUpdateAuthorityOption', 'Immutable', 1) };
 const step = process.argv[2];
 const client = new DynamicBondingCurveClient(connection, 'confirmed');
 const BIG = new BN('1000000000000000'); // "claim everything" cap for the max amounts
@@ -22,7 +29,9 @@ const bal = async pk => sol(await connection.getBalance(pk));
 const need = (state, k, hint) => { if (!state[k]) { console.error('Missing ' + k + '. ' + hint); process.exit(1); } return state[k]; };
 const keys = () => ({ keeper: loadKey('mt-keeper'), platform: loadKey('mt-platform'), buyer: loadKey('mt-buyer'), creator: loadKey('mt-creator') });
 
-if (step === 'setup') {
+if (step === 'exports') {
+  console.log(Object.keys(sdk).sort().join('\n'));
+} else if (step === 'setup') {
   const roles = {
     'mt-keeper': 'pool creator on chain, signs launches and claims creator fees (needs ~1 SOL)',
     'mt-platform': 'platform fee claimer and config payer (needs ~0.5 SOL)',
