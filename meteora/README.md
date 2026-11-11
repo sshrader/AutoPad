@@ -1,6 +1,6 @@
-# AutoPay on Meteora (test site)
+# AutoPayment on Meteora (test site)
 
-A separate, small site that shows AutoPay working on Meteora's Dynamic Bonding Curve. It does not touch the main AutoPay site.
+A separate, small site that shows AutoPayment working on Meteora's Dynamic Bonding Curve. It does not touch the main AutoPay site.
 
 - **Site** (`server.mjs`, `public/`): read-only. Shows the real flagship coin (live from the chain once its pool is set) first, then clearly labelled simulated demo coins (`demo-coins.json`). It holds no secrets and cannot spend anything.
 - **Config** (`scripts/01-config.mjs`): makes the curve config. Permanent, so it shows the numbers and needs `--yes`.

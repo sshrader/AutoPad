@@ -77,7 +77,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     chain = await createChain({ connection: new Connection(rpcUrl(c), 'confirmed'), keeper: Keypair.generate() });
   }
   const port = Number(env('PORT', '3000'));
-  http.createServer(createApp({ chain })).listen(port, () => console.log('AutoPay on Meteora (' + c + ') on port ' + port));
+  http.createServer(createApp({ chain })).listen(port, () => console.log('AutoPayment on Meteora (' + c + ') on port ' + port));
 
   // OPTIONAL fee claimer inside the site, OFF by default. AUTOCLAIM=dry only logs what it would send; AUTOCLAIM=yes really
   // sends. Turning it on means putting the keeper wallet's key in this site's settings (KEEPER_SECRET_KEY).

@@ -53,7 +53,7 @@
     var id = new URLSearchParams(location.search).get('id') || 'flagship', root = $('coin');
     Promise.all([get('/api/coins/' + encodeURIComponent(id)), get('/api/payouts')]).then(function (r) {
       var c = r[0], pays = r[1].filter(function (p) { return p.id === c.id; });
-      document.title = c.name + ' · AutoPay on Meteora'; root.textContent = '';
+      document.title = c.name + ' · AutoPayment on Meteora'; root.textContent = '';
       var head = el('div', 'hero'); var row = el('div'); row.style.cssText = 'display:flex;gap:1rem;align-items:center;flex-wrap:wrap';
       row.appendChild(badge(c)); var h = el('h1', '', c.name + ' '); h.style.fontSize = 'clamp(1.7rem,4vw,2.4rem)'; h.appendChild(el('span', 'mono', '$' + c.symbol)); row.appendChild(h); head.appendChild(row);
       var tg = el('div'); tg.style.marginTop = '.5rem'; tags(c, tg); head.appendChild(tg); head.appendChild(el('p', '', c.description)); root.appendChild(head);

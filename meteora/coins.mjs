@@ -11,8 +11,8 @@ export function flagshipFromEnv(e = env) {
   const creator = e('FLAGSHIP_CREATOR');
   return {
     id: 'flagship', flagship: true, simulated: false,
-    name: e('FLAGSHIP_NAME', 'AutoPay'), symbol: e('FLAGSHIP_SYMBOL', 'AUTO'),
-    description: e('FLAGSHIP_DESCRIPTION', 'The first coin on AutoPay. It AutoPays its fees, no hassle required.'),
+    name: e('FLAGSHIP_NAME', 'AutoPayment'), symbol: e('FLAGSHIP_SYMBOL', 'AUTO'),
+    description: e('FLAGSHIP_DESCRIPTION', 'The first coin on AutoPayment. It pays its fees automatically, no hassle required.'),
     creator: isAddress(creator) ? creator : '', mint: isAddress(e('FLAGSHIP_MINT')) ? e('FLAGSHIP_MINT') : '', pool: isAddress(e('FLAGSHIP_POOL')) ? e('FLAGSHIP_POOL') : '',
     image: '/flagship.png',
   };

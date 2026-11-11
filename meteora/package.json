@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AutoPay on Meteora: a small test site (flagship coin + demo coins) and the fee claimer. Separate from the main AutoPay site.",
+  "description": "AutoPayment on Meteora: a small test site (flagship coin + demo coins) and the fee claimer. Separate from the main AutoPay site.",
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test",
