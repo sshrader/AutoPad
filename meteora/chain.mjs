@@ -93,6 +93,67 @@ export async function createChain({ connection, keeper }) {
       return { mint: mint.publicKey.toBase58(), pool: pool.toBase58(), sig };
     },
 
+    // A visitor's launch. The VISITOR pays (rent and the first buy) and signs as buyer; the keeper signs only as the on-chain
+    // creator, so it can later claim the creator fees for them. Returns the transaction, already signed by the keeper and the
+    // new mint, for the visitor's wallet to sign and send.
+    async prepareLaunch({ config, name, symbol, uri, buyer, buySol }) {
+      const mint = Keypair.generate(), buyerPk = pk(buyer);
+      const createPoolParam = { baseMint: mint.publicKey, config: pk(config), name, symbol, uri, payer: buyerPk, poolCreator: keeper.publicKey };
+      const buyAmount = new BN(toLamports(buySol || 0));
+      let tx;
+      if (buyAmount.gtn(0)) {
+        const made = await client.creator.createPoolWithFirstBuy({
+          createPoolParam,
+          firstBuyParam: { buyer: buyerPk, buyAmount, minimumAmountOut: new BN(0), referralTokenAccount: null }, // same transaction as creation, so nobody can get in front
+        });
+        tx = made.createPoolTx || made;
+      } else {
+        tx = await client.creator.createPool(createPoolParam);
+      }
+      tx.feePayer = buyerPk;
+      tx.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
+      tx.partialSign(keeper, mint);
+      const pool = sdk.deriveDbcPoolAddress(spl.NATIVE_MINT, mint.publicKey, pk(config));
+      return { tx: tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64'), mint: mint.publicKey.toBase58(), pool: pool.toBase58() };
+    },
+
+    // Did this launch really happen, and is the keeper the pool's creator? Used before a coin is listed.
+    async confirmLaunch({ pool, mint }) {
+      try {
+        const p = await client.state.getPool(pk(pool));
+        return p.baseMint.toBase58() === mint && p.creator.toBase58() === keeper.publicKey.toBase58();
+      } catch { return false; }
+    },
+
+    // A buy (amount in SOL) or sell (amount = percent of the visitor's tokens). The minimum received comes from a quote with
+    // 15% slippage; if no quote can be made the trade is refused instead of sent with no protection.
+    async prepareSwap({ pool, wallet, side, amount }) {
+      const owner = pk(wallet), poolPk = pk(pool);
+      const p = await client.state.getPool(poolPk);
+      if (p.isMigrated) { const e = new Error('migrated'); e.code = 'migrated'; throw e; }
+      let amountIn;
+      if (side === 'buy') amountIn = new BN(toLamports(amount));
+      else {
+        const ata = spl.getAssociatedTokenAddressSync(p.baseMint, owner, false, spl.TOKEN_2022_PROGRAM_ID);
+        let held = '0';
+        try { held = (await connection.getTokenAccountBalance(ata)).value.amount; } catch { held = '0'; }
+        amountIn = new BN(held).muln(Math.round(amount * 100)).divn(10000);
+        if (amountIn.isZero()) { const e = new Error('nothing_to_sell'); e.code = 'nothing_to_sell'; throw e; }
+      }
+      let minOut;
+      try {
+        const config = await client.state.getPoolConfig(p.config);
+        const point = Number(config.activationType) === 1 ? new BN(Math.floor(Date.now() / 1000)) : new BN(await connection.getSlot());
+        const q = client.pool.swapQuote({ virtualPool: p, config, swapBaseForQuote: side === 'sell', amountIn, slippageBps: 1500, hasReferral: false, eligibleForFirstSwapWithMinFee: false, currentPoint: point });
+        minOut = q.minimumAmountOut;
+        if (!minOut) throw new Error('no quote');
+      } catch { const e = new Error('quote_failed'); e.code = 'quote_failed'; throw e; }
+      const tx = await client.pool.swap({ owner, amountIn, minimumAmountOut: minOut, swapBaseForQuote: side === 'sell', pool: poolPk, poolAddress: poolPk, referralTokenAccount: null });
+      tx.feePayer = owner;
+      tx.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
+      return { tx: tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64'), amountIn: amountIn.toString(), minOut: minOut.toString() };
+    },
+
     // Live numbers for the coin page.
     async poolInfo(poolAddress) {
       const pool = pk(poolAddress);

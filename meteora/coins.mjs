@@ -18,11 +18,13 @@ export function flagshipFromEnv(e = env) {
   };
 }
 
-export function loadCoins(e = env) {
+export function loadCoins(e = env, store = null) {
   const demo = JSON.parse(fs.readFileSync(path.join(HERE, 'demo-coins.json'), 'utf8')).map(c => ({ ...c, simulated: true, flagship: false }));
   const flagship = flagshipFromEnv(e);
   // The flagship is always first. Before it is launched it shows as "not launched yet" instead of pretending.
-  return [flagship, ...demo];
+  const hidden = new Set(e('HIDE_COINS').split(',').map(x => x.trim()).filter(Boolean));
+  const made = store ? store.list().filter(x => !hidden.has(x.id)).map(x => ({ ...x, simulated: false, flagship: false })) : [];
+  return [flagship, ...made, ...demo];
 }
 
 export const launched = coin => Boolean(coin.pool && coin.mint);

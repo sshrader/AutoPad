@@ -56,7 +56,8 @@ test('serves metadata for the launch and pages, rejects writes and path tricks',
   assert.equal((await fetch(s.base + '/')).status, 200);
   assert.equal((await fetch(s.base + '/coin?id=flagship')).status, 200);
   assert.equal((await fetch(s.base + '/api/coins/nope')).status, 404);
-  assert.equal((await fetch(s.base + '/api/coins', { method: 'POST' })).status, 405);
+  assert.equal((await fetch(s.base + '/api/coins', { method: 'POST' })).status, 404);
+  assert.equal((await fetch(s.base + '/api/coins', { method: 'PUT' })).status, 405);
   assert.equal((await fetch(s.base + '/..%2fserver.mjs')).status, 404);
   assert.equal((await fetch(s.base + '/%2e%2e/server.mjs')).status, 404);
   s.close();

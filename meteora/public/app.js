@@ -50,6 +50,34 @@
   }
   function panel(title) { var p = el('div', 'panel'); p.appendChild(el('h2', '', title)); return p; }
   function cell(label, value) { var d = el('div'); d.appendChild(el('span', '', label)); var b = el('b'); if (value && value.nodeType) b.appendChild(value); else b.textContent = value; d.appendChild(b); return d; }
+  var TMSG = { migrated: 'This coin has graduated. Trade it on Meteora.', nothing_to_sell: 'You do not hold any of this coin.', quote_failed: 'Could not get a safe price right now. Try again.', slow_down: 'Too many tries. Wait a little.', trade_off: 'Trading is switched off.', unknown_coin: 'Unknown coin.', bad_amount: 'Enter an amount between 0.001 and 100 SOL.' };
+  function tradePanel(c) {
+    var W = window.APWallet, p = panel('Buy and sell'), msg = el('p', 'msg'); msg.setAttribute('role', 'status'); msg.setAttribute('aria-live', 'polite');
+    var row = el('div', 'row'), lab = el('label', '', 'Amount in SOL'), inp = el('input'); inp.value = '0.1'; inp.setAttribute('inputmode', 'decimal'); lab.appendChild(inp); row.appendChild(lab);
+    var buy = el('button', 'btn', 'Buy'), half = el('button', 'btn alt', 'Sell half'), all = el('button', 'btn alt', 'Sell all');
+    [buy, half, all].forEach(function (b) { b.type = 'button'; row.appendChild(b); });
+    function say(t, kind) { msg.textContent = t; msg.className = 'msg' + (kind ? ' ' + kind : ''); }
+    function run(side, amount) {
+      [buy, half, all].forEach(function (b) { b.disabled = true; }); say('Getting a price…');
+      (W.address ? Promise.resolve(W.address) : W.connect()).then(function (wallet) {
+        return fetch('/api/trade/prepare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: wallet, pool: c.pool, side: side, amount: amount }) }).then(function (r) { return r.json(); });
+      }).then(function (out) {
+        if (!out.tx) throw new Error(out.error || 'trade_failed');
+        say('Approve it in your wallet…'); return W.signAndSend(out.tx);
+      }).then(function (sig) {
+        msg.className = 'msg good'; msg.textContent = 'Done. '; msg.appendChild(link(exp('tx', sig), 'View transaction'));
+      }).catch(function (e) {
+        var code = e && (e.code || e.message);
+        say(code === 'no_wallet' ? 'Install the Phantom wallet to trade.' : TMSG[code] || (/reject|denied|cancel/i.test(String(e && e.message)) ? 'You cancelled in your wallet. Nothing was spent.' : 'The trade did not go through.'), 'bad');
+      }).then(function () { [buy, half, all].forEach(function (b) { b.disabled = false; }); });
+    }
+    buy.addEventListener('click', function () { run('buy', Number(inp.value)); });
+    half.addEventListener('click', function () { run('sell', 50); });
+    all.addEventListener('click', function () { run('sell', 100); });
+    p.appendChild(row); p.appendChild(msg);
+    p.appendChild(el('p', 'sub', 'A price limit of 15% protects each trade. If the price moves more than that, the trade is refused and you keep your SOL.'));
+    return p;
+  }
   function coinPage() {
     var id = new URLSearchParams(location.search).get('id') || 'flagship', root = $('coin');
     Promise.all([get('/api/coins/' + encodeURIComponent(id)), get('/api/payouts')]).then(function (r) {
@@ -71,6 +99,7 @@
         p.appendChild(g);
       }
       root.appendChild(p);
+      if (cfg.trade && !c.simulated && c.launched && c.pool && c.live && !c.live.isMigrated) root.appendChild(tradePanel(c));
       var w = panel('Where it lives');
       var g2 = el('div', 'grid'); g2.appendChild(cell('Creator wallet', c.creator ? link(exp('address', c.creator), short(c.creator)) : '–'));
       if (!c.simulated && c.mint) g2.appendChild(cell('Token', link(exp('address', c.mint), short(c.mint))));

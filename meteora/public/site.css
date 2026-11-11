@@ -36,3 +36,26 @@ header.top img{width:36px;height:36px;border-radius:8px}header.top b{font-family
 .stamp{position:absolute;right:-6px;top:-10px;transform:rotate(-9deg);border:3px solid var(--stamp);color:var(--stamp);padding:.1rem .6rem;font:700 1rem 'Space Mono',monospace;letter-spacing:.08em;border-radius:5px;background:rgba(252,252,250,.7);pointer-events:none}
 footer{margin-top:2.2rem;color:var(--muted);font-size:.85rem;border-top:2px dashed var(--ink);padding-top:1rem}
 @media(max-width:520px){.card{grid-template-columns:44px 1fr}.card .num{grid-column:1/-1;text-align:left}.badge{width:44px;height:44px}}
+/* header, links, wallet button */
+header.top .brand{display:flex;align-items:center;gap:.7rem;text-decoration:none}
+.links{display:flex;gap:1.1rem;flex-wrap:wrap;margin-left:1.2rem;font-size:.92rem;font-weight:500}
+.links a{text-decoration:none;padding:.15rem 0;border-bottom:2px solid transparent}.links a:hover{border-bottom-color:var(--ink);color:var(--ink)}
+.links a[aria-current]{border-bottom-color:var(--ink)}
+.wbtn{font:700 .8rem 'Space Mono',monospace;background:var(--paper);color:var(--ink);border:2px solid var(--ink);padding:.3rem .8rem;cursor:pointer;min-height:36px}
+.wbtn:hover{background:var(--ink);color:var(--paper)}
+header.top .net{margin-left:auto}
+/* forms and buttons */
+form,.form{display:grid;gap:1rem;max-width:34rem}
+label{display:grid;gap:.3rem;font-family:'Space Mono',monospace;font-size:.8rem;font-weight:700}
+label small{font:400 .78rem 'Space Grotesk',sans-serif;color:var(--muted)}
+input,textarea,select{font:1rem 'Space Grotesk',sans-serif;color:var(--ink);background:var(--paper);border:2px solid var(--ink);padding:.6rem .7rem;border-radius:0;width:100%;min-height:44px}
+textarea{min-height:4.5rem;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--stamp);outline-offset:2px}
+.btn{font:700 .95rem 'Space Mono',monospace;background:var(--ink);color:var(--paper);border:2px solid var(--ink);padding:.7rem 1.3rem;cursor:pointer;min-height:44px}
+.btn:hover:not(:disabled){background:var(--stamp);border-color:var(--stamp)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.alt{background:var(--paper);color:var(--ink)}.btn.alt:hover:not(:disabled){background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:end}.row label{flex:1;min-width:9rem}
+.msg{font-size:.92rem;min-height:1.4em;overflow-wrap:anywhere}.msg.bad{color:var(--stamp);font-weight:600}.msg.good{font-weight:600}
+.prose{max-width:42rem}.prose h2{font-size:1.15rem;margin:1.6rem 0 .5rem}.prose p,.prose li{color:var(--ink)}.prose ul,.prose ol{padding-left:1.2rem}.prose li{margin:.3rem 0}
+.preview{width:96px;height:96px;object-fit:cover;border:2px solid var(--ink);background:var(--paper)}
+a.btn{display:inline-block;text-decoration:none;line-height:1.2}

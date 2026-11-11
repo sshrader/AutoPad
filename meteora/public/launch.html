@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Launch a coin · AutoPayment on Meteora</title><meta name="theme-color" content="#d9dbd5"><link rel="icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="/site.css"></head>
+<body><div class="wrap">
+<header class="top" id="top"></header>
+<section class="hero"><h1>Launch a coin.</h1><p>Pick a name and a picture, connect your wallet, and approve one transaction. Creator fees on your coin are claimed on a schedule and sent straight to the wallet you launch with.</p></section>
+<div class="note" id="off" hidden>Launching is not open on this test site yet.</div>
+<form id="f" class="panel" novalidate>
+<label>Picture<small>Square works best. It is cropped to the middle and shrunk for you.</small><input type="file" id="img" accept="image/png,image/jpeg" required></label>
+<img id="prev" class="preview" alt="" hidden>
+<div class="row"><label>Name<input id="name" maxlength="32" autocomplete="off" placeholder="Pay Cat" required></label>
+<label>Ticker<input id="sym" maxlength="10" autocomplete="off" placeholder="PAYCAT" required></label></div>
+<label>Description<small>Optional, up to 200 characters.</small><textarea id="desc" maxlength="200" placeholder="A cat that gets a paycheck every ten minutes."></textarea></label>
+<label>Your first buy in SOL<small id="buyhint">Optional. It happens in the same transaction as the launch, so nobody can get in front of you.</small><input id="buy" inputmode="decimal" value="0.1"></label>
+<div class="row"><button class="btn" id="go" type="submit">Launch</button></div>
+<p class="msg" id="msg" role="status" aria-live="polite"></p>
+</form>
+</div><script src="/wallet.js"></script><script src="/nav.js"></script><script src="/launch.js"></script></body></html>
