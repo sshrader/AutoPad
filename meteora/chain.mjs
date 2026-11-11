@@ -15,7 +15,8 @@ export async function createChain({ connection, keeper }) {
   const pk = x => (x instanceof PublicKey ? x : new PublicKey(x));
   const num = x => (x && x.toString ? Number(x.toString()) : Number(x || 0));
   // Newer SDKs return the pool wrapped as { poolState }; older ones return the pool itself. null = no such pool (yet).
-  const getPoolState = async poolAddress => { const r = await client.state.getPool(pk(poolAddress)); return r ? (r.poolState || r) : null; };
+  const getPoolRaw = poolAddress => client.state.getPool(pk(poolAddress));
+  const getPoolState = async poolAddress => { const r = await getPoolRaw(poolAddress); return r ? (r.poolState || r) : null; };
 
   async function send(tx, signers) {
     tx.feePayer = signers[0].publicKey;
@@ -154,15 +155,17 @@ export async function createChain({ connection, keeper }) {
       const config = config0 && config0.config ? config0.config : config0; // unwrap if a newer SDK wraps it
       const point = Number(config.activationType) === 1 ? new BN(Math.floor(Date.now() / 1000)) : new BN(await connection.getSlot());
       const base = { virtualPool: p, config, swapBaseForQuote: side === 'sell', hasReferral: false, currentPoint: point, slippageBps: 1500 };
-      const tries = [
-        ['swapQuote', () => client.pool.swapQuote({ ...base, amountIn, eligibleForFirstSwapWithMinFee: false })],
-        ['swapQuote2', () => client.pool.swapQuote2({ ...base, swapMode: pick('SwapMode', 'ExactIn', 0), amountIn })],
-      ];
+      const raw = await getPoolRaw(poolPk);
+      const tries = [];
+      for (const [pname, pool] of [['pool state', p], ['pool as returned', raw]]) {
+        tries.push(['swapQuote with ' + pname, () => client.pool.swapQuote({ ...base, virtualPool: pool, amountIn, eligibleForFirstSwapWithMinFee: false })]);
+        tries.push(['swapQuote2 with ' + pname, () => client.pool.swapQuote2({ ...base, virtualPool: pool, swapMode: pick('SwapMode', 'ExactIn', 0), amountIn, eligibleForFirstSwapWithMinFee: false })]);
+      }
       for (const [label, run] of tries) {
         try {
           const q = await run(); // some SDK versions return a promise, some a value
           const m = q && (q.minimumAmountOut || q.minimumOutputAmount || q.outputAmount);
-          if (m) { minOut = m; break; }
+          if (m) { minOut = m; console.error('prepareSwap: quote worked via ' + label); break; }
           console.error('prepareSwap: ' + label + ' gave no minimum; got keys: ' + Object.keys(q || {}).join(', '));
         } catch (err) { console.error('prepareSwap: ' + label + ' failed: ' + String((err && err.message) || err).slice(0, 200)); }
       }
