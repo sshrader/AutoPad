@@ -29,7 +29,10 @@ const bal = async pk => sol(await connection.getBalance(pk));
 const need = (state, k, hint) => { if (!state[k]) { console.error('Missing ' + k + '. ' + hint); process.exit(1); } return state[k]; };
 const keys = () => ({ keeper: loadKey('mt-keeper'), platform: loadKey('mt-platform'), buyer: loadKey('mt-buyer'), creator: loadKey('mt-creator') });
 
-if (step === 'exports') {
+const methodsOf = svc => { const out = new Set(); for (let o = svc; o && o !== Object.prototype; o = Object.getPrototypeOf(o)) Object.getOwnPropertyNames(o).forEach(n => { if (n !== 'constructor' && typeof svc[n] === 'function' && !n.startsWith('_')) out.add(n); }); return [...out].sort(); };
+if (step === 'methods') {
+  for (const [name, svc] of Object.entries(client)) if (svc && typeof svc === 'object' && !(svc instanceof Map)) { const m = methodsOf(svc); if (m.length) console.log(name + ': ' + m.join(', ')); }
+} else if (step === 'exports') {
   console.log(Object.keys(sdk).sort().join('\n'));
 } else if (step === 'setup') {
   const roles = {
@@ -96,10 +99,17 @@ if (step === 'exports') {
   const mint = Keypair.generate();
   const name = arg('name', 'Pay Cat'), symbol = arg('symbol', 'PAYCAT');
   const firstBuy = new BN(Math.round(Number(arg('buy', '0.1')) * LAMPORTS_PER_SOL));
-  const { createPoolTx } = await client.pool.createPoolWithFirstBuy({
+  let svc = client.pool, fn = 'createPoolWithFirstBuy';
+  if (typeof svc[fn] !== 'function') { // newer SDKs may keep it elsewhere or name it differently
+    const hit = Object.entries(client).flatMap(([n, o]) => (o && typeof o === 'object' ? methodsOf(o).filter(m => /FirstBuy/i.test(m) && !/Config/i.test(m)).map(m => [o, m, n]) : []))[0];
+    if (!hit) { console.error('No create-pool-with-first-buy method found. Run: node 30-meteora-spike.mjs methods'); process.exit(1); }
+    [svc, fn] = hit; console.log('Using ' + hit[2] + '.' + fn);
+  }
+  const made = await svc[fn]({
     createPoolParam: { baseMint: mint.publicKey, config, name, symbol, uri: 'https://example.com/' + symbol.toLowerCase() + '.json', payer: keeper.publicKey, poolCreator: keeper.publicKey },
     firstBuyParam: { buyer: buyer.publicKey, buyAmount: firstBuy, minimumAmountOut: new BN(0), referralTokenAccount: null },
   });
+  const createPoolTx = made.createPoolTx || made;
   // keeper (pool creator + payer), the new mint, and the buyer all sign ONE transaction = atomic launch
   await send(createPoolTx, [keeper, mint, buyer], 'create pool + first buy');
   const pool = deriveDbcPoolAddress(NATIVE_MINT, mint.publicKey, config);
