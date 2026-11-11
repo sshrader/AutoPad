@@ -163,7 +163,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const { createChain } = await import('./chain.mjs');
     // Only when LAUNCH=yes does the site hold the keeper key (it must co-sign each launch as the pool's creator).
     // Otherwise it runs with a throwaway key that holds nothing.
-    const keeper = env('LAUNCH') === 'yes' ? Keypair.fromSecretKey(keeperBytes()) : Keypair.generate();
+    let keeper = Keypair.generate();
+    if (env('LAUNCH') === 'yes') {
+      try { keeper = Keypair.fromSecretKey(keeperBytes()); } catch (err) {
+        console.error('LAUNCH is on but the keeper key is not usable, so launching is switched off: ' + err.message);
+        process.env.LAUNCH = 'no';
+      }
+    }
     chain = await createChain({ connection: new Connection(rpcUrl(c), 'confirmed'), keeper });
   }
   const port = Number(env('PORT', '3000'));
@@ -177,7 +183,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const { rpcUrl, keeperBytes, readJson, writeJson, lamports } = await import('./lib.mjs');
     const { createChain } = await import('./chain.mjs');
     const { runClaims } = await import('./claimer.mjs');
-    const keeper = Keypair.fromSecretKey(keeperBytes());
+    let keeper = null;
+    try { keeper = Keypair.fromSecretKey(keeperBytes()); } catch (err) { console.error('AUTOCLAIM is on but the keeper key is not usable, so the claimer is off: ' + err.message); }
+    if (!keeper) { /* no key: no claimer */ } else {
     const claimChain = await createChain({ connection: new Connection(rpcUrl(c), 'confirmed'), keeper });
     const file = path.join(env('DATA_DIR', path.join(HERE, 'data')), 'payouts.json');
     const everyMs = Math.max(1, Number(env('AUTOCLAIM_EVERY_MIN', '10'))) * 60000;
@@ -190,5 +198,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     };
     setInterval(tick, everyMs); setTimeout(tick, 15000);
     console.log('Fee claimer on (' + mode + '), every ' + everyMs / 60000 + ' min.');
+    }
   }
 }
