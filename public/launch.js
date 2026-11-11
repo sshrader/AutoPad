@@ -68,6 +68,13 @@
     const a = document.createElement('a');
     a.className = 'btn go coin-go'; a.href = '/coin/' + encodeURIComponent(pool); a.textContent = 'View your coin';
     const row = document.createElement('div'); row.className = 'row'; row.appendChild(a);
+    // On mainnet, a button for GMGN too. On the flagship page it also tries to open it by itself (a browser may block that; the button always works).
+    if (AnimalNet.main) {
+      const g = 'https://gmgn.ai/sol/token/' + encodeURIComponent(pool);
+      const b = document.createElement('a'); b.className = 'btn'; b.href = g; b.target = '_blank'; b.rel = 'noopener noreferrer'; b.textContent = 'Open on GMGN';
+      row.appendChild(b);
+      if (location.pathname.indexOf('/admin/launch') === 0) { try { window.open(g, '_blank', 'noopener'); } catch (e) { /* the button is there */ } }
+    }
     box.appendChild(row); box.hidden = false;
   }
 

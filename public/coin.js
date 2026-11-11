@@ -124,6 +124,8 @@
     if (Number(c.devBuySol) > 0) fact('Creator first buy', 'The creator bought ' + Number(c.devBuySol) + ' SOL worth in the launch transaction, before anyone else could.');
     fact('Launched', when(c.createdAt));
     const ex = a => 'https://explorer.solana.com/address/' + encodeURIComponent(a) + AnimalNet.suffix;
+    // GMGN only lists mainnet coins.
+    if (AnimalNet.main && B58.test(c.mint || '')) { const g = document.createElement('span'); link(g, 'https://gmgn.ai/sol/token/' + encodeURIComponent(c.mint), 'Open on GMGN'); fact('Chart', g); }
     [['Token address (CA)', c.mint], ['Creator wallet', c.creator]].forEach(x => {
       if (!B58.test(x[1] || '')) return;
       const s = document.createElement('span');
