@@ -88,6 +88,9 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
       if (!limit('l:' + ip, 8, 3600000)) return json(res, 429, { error: 'slow_down' });
       const c = checkLaunch(body, { maxBuySol });
       if (c.error) return json(res, 400, { error: c.error });
+      // Until the flagship exists, only the flagship creator's wallet may launch.
+      const top = loadCoins(e, store)[0];
+      if (top.creator && !launched(top) && c.ok.wallet !== top.creator) return json(res, 403, { error: 'flagship_first' });
       const id = c.ok.symbol.toLowerCase() + '-' + rand();
       const uri = siteUrl + '/meta/' + id + '.json';
       try {

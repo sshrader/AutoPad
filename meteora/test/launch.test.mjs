@@ -139,3 +139,21 @@ test('oversized bodies are refused', async () => {
   assert.equal(r.status, 413);
   s.close();
 });
+
+test('until the flagship exists only its creator may launch; then it becomes the pinned flagship', async () => {
+  const s = await serve({ ...ON, FLAGSHIP_CREATOR: W }, fake());
+  const stranger = '6MC8oeNvL4LQDXcxCQzzcoKpVsrbY3UJMYeKVQ5ew6TV';
+  const no = await post(s, '/api/launch/prepare', { ...good, wallet: stranger });
+  assert.equal(no.status, 403);
+  assert.equal((await no.json()).error, 'flagship_first');
+  const out = await (await post(s, '/api/launch/prepare', { ...good, name: 'AutoPayment', symbol: 'AUTO' })).json();
+  assert.ok(out.id);
+  assert.equal((await post(s, '/api/launch/confirm', { id: out.id })).status, 200);
+  const coins = await (await fetch(s.base + '/api/coins')).json();
+  assert.equal(coins[0].id, out.id);
+  assert.equal(coins[0].flagship, true);
+  assert.equal(coins.filter(c => c.flagship).length, 1);
+  // now anyone can launch
+  assert.equal((await post(s, '/api/launch/prepare', { ...good, wallet: stranger, symbol: 'OTHER' })).status, 200);
+  s.close();
+});
