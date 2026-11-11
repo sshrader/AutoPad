@@ -20,7 +20,7 @@ const MigrationOption = { MET_DAMM_V2: pick('MigrationOption', 'MET_DAMM_V2', 1)
 const MigrationFeeOption = { FixedBps100: pick('MigrationFeeOption', 'FixedBps100', 2) };
 const TokenDecimal = { SIX: pick('TokenDecimal', 'SIX', 6), NINE: pick('TokenDecimal', 'NINE', 9) };
 const TokenType = { Token2022: pick('TokenType', 'Token2022', 1) };
-const TokenUpdateAuthorityOption = { Immutable: pick('TokenUpdateAuthorityOption', 'Immutable', 1) };
+const TokenUpdateAuthorityOption = { Immutable: pick('TokenUpdateAuthorityOption', 'Immutable', pick('TokenAuthorityOption', 'Immutable', 1)) };
 const step = process.argv[2];
 const client = new DynamicBondingCurveClient(connection, 'confirmed');
 const BIG = new BN('1000000000000000'); // "claim everything" cap for the max amounts
@@ -55,6 +55,7 @@ if (step === 'exports') {
       tokenType: TokenType.Token2022, // AutoPay's airdrop code already handles Token-2022
       tokenBaseDecimal: TokenDecimal.SIX,
       tokenQuoteDecimal: TokenDecimal.NINE,
+      tokenAuthorityOption: TokenUpdateAuthorityOption.Immutable, // named tokenUpdateAuthority in older SDKs
       tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
       totalTokenSupply: 1_000_000_000,
       leftover: 0,
