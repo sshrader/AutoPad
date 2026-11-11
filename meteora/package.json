@@ -9,7 +9,8 @@
     "test": "node --test",
     "config": "node scripts/01-config.mjs",
     "flagship": "node scripts/02-launch-flagship.mjs",
-    "claim": "node scripts/04-claim.mjs"
+    "claim": "node scripts/04-claim.mjs",
+    "sweep": "node scripts/05-sweep.mjs"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
