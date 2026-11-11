@@ -37,12 +37,12 @@ export async function createChain({ connection, keeper }) {
         leftover: 0,
       },
       fee: {
-        baseFeeParams: { baseFeeMode: pick('BaseFeeMode', 'FeeSchedulerLinear', 0), feeSchedulerParam: { startingFeeBps: feeBps, endingFeeBps: feeBps, numberOfPeriod: 0, totalDuration: 0 } },
+        baseFeeParams: { baseFeeMode: pick('BaseFeeMode', 'FeeSchedulerLinear', 0), feeSchedulerParam: { startingFeeBps: o.feeStartBps ?? feeBps, endingFeeBps: feeBps, numberOfPeriod: o.feePeriods ?? 0, totalDuration: o.feeDuration ?? 0 } },
         dynamicFeeEnabled: false,
         collectFeeMode: pick('CollectFeeMode', 'QuoteToken', 0),
         creatorTradingFeePercentage: o.creatorPct,
         poolCreationFee: 0,
-        enableFirstSwapWithMinFee: false,
+        enableFirstSwapWithMinFee: Boolean(o.firstSwapMinFee),
       },
       migration: {
         migrationOption: pick('MigrationOption', 'MET_DAMM_V2', 1),
