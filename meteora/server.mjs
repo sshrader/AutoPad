@@ -19,6 +19,10 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
   const platformWallet = e('PLATFORM_WALLET');
   const dbcConfig = e('DBC_CONFIG');
   const launchOn = e('LAUNCH') === 'yes' && Boolean(chain && chain.prepareLaunch && store && isAddress(dbcConfig) && /^https:\/\//.test(siteUrl));
+  if (e('LAUNCH') !== 'yes') console.log('Launching is off: LAUNCH is "' + e('LAUNCH') + '" (it must be exactly yes).');
+  else if (!isAddress(dbcConfig)) console.log('Launching is off: DBC_CONFIG is missing or not a valid address.');
+  else if (!/^https:\/\//.test(siteUrl)) console.log('Launching is off: SITE_URL must start with https://.');
+  else if (!(chain && chain.prepareLaunch && store)) console.log('Launching is off: the chain connection is not set up (check RPC_URL).');
   const tradeOn = e('TRADE') !== 'no' && Boolean(chain && chain.prepareSwap);
   const maxBuySol = Number(e('LAUNCH_MAX_BUY', '2'));
   const limit = createLimiter({ now });
