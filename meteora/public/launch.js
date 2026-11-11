@@ -39,13 +39,13 @@
     if (!file) return say('Pick a picture first.', 'bad');
     if (!$('name').value.trim() || !$('sym').value.trim()) return say('Enter a name and a ticker.', 'bad');
     go.disabled = true; say('Getting ready…');
-    var wallet;
+    var wallet, sentSig = '';
     (W.address ? Promise.resolve(W.address) : W.connect()).then(function (a) { wallet = a; return cropImage(file); }).then(b64).then(function (img) {
       return post('/api/launch/prepare', { wallet: wallet, name: $('name').value, symbol: $('sym').value, description: $('desc').value, buySol: Number($('buy').value || 0), image: img });
     }).then(function (out) {
       if (!out.tx) throw new Error(out.error || 'launch_failed');
       say('Approve the transaction in your wallet…');
-      return W.signAndSend(out.tx).then(function (sig) { return { id: out.id, sig: sig }; });
+      return W.signAndSend(out.tx).then(function (sig) { sentSig = sig; return { id: out.id, sig: sig }; });
     }).then(function (r) {
       say('Sent. Waiting for the network…');
       var tries = 0;
@@ -63,7 +63,9 @@
       m.appendChild(document.createTextNode(' · ')); var t = document.createElement('a'); t.href = cfg.explorer + '/tx/' + r.sig + cfg.explorerSuffix; t.target = '_blank'; t.rel = 'noopener'; t.textContent = 'Transaction'; m.appendChild(t);
     }).catch(function (e) {
       var code = e && (e.code || e.message);
+      var shownBy = code;
       say(code === 'no_wallet' ? 'Install the Phantom wallet to continue.' : MSG[code] || (/reject|denied|cancel/i.test(String(e && e.message)) ? 'You cancelled in your wallet. Nothing was spent.' : 'Something went wrong. If your wallet shows a transaction, check it on the explorer.'), 'bad');
+      if (sentSig) { var m = $('msg'); m.appendChild(document.createTextNode(' ')); var t = document.createElement('a'); t.href = cfg.explorer + '/tx/' + sentSig + cfg.explorerSuffix; t.target = '_blank'; t.rel = 'noopener'; t.textContent = 'Check your transaction'; m.appendChild(t); }
     }).then(function () { go.disabled = false; });
   });
 

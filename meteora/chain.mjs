@@ -121,8 +121,10 @@ export async function createChain({ connection, keeper }) {
     async confirmLaunch({ pool, mint }) {
       try {
         const p = await client.state.getPool(pk(pool));
-        return p.baseMint.toBase58() === mint && p.creator.toBase58() === keeper.publicKey.toBase58();
-      } catch { return false; }
+        const ok = p.baseMint.toBase58() === mint && p.creator.toBase58() === keeper.publicKey.toBase58();
+        if (!ok) console.error('confirmLaunch: pool ' + pool + ' found but baseMint=' + p.baseMint.toBase58() + ' (want ' + mint + '), creator=' + p.creator.toBase58() + ' (want ' + keeper.publicKey.toBase58() + ')');
+        return ok;
+      } catch (err) { console.error('confirmLaunch: pool ' + pool + ' not readable yet: ' + String((err && err.message) || err).slice(0, 160)); return false; }
     },
 
     // A buy (amount in SOL) or sell (amount = percent of the visitor's tokens). The minimum received comes from a quote with
