@@ -4,7 +4,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env, clusterName, readJson, sol, isAddress } from './lib.mjs';
+import { env, clusterName, readJson, writeJson, sol, isAddress, lamports } from './lib.mjs';
+import { runClaims } from './claimer.mjs';
 import { loadCoins, launched } from './coins.mjs';
 import { createStore } from './store.mjs';
 import { checkLaunch, checkTrade, createLimiter } from './launchcheck.mjs';
@@ -13,7 +14,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(HERE, 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
-export function createApp({ e = env, chain = null, store = null, now = Date.now, rand = () => Math.random().toString(36).slice(2, 6), dataDir = e('DATA_DIR', path.join(HERE, 'data')) } = {}) {
+export function createApp({ e = env, chain = null, canClaim = false, store = null, now = Date.now, rand = () => Math.random().toString(36).slice(2, 6), dataDir = e('DATA_DIR', path.join(HERE, 'data')) } = {}) {
   const cluster = e('CLUSTER', 'devnet');
   const siteUrl = e('SITE_URL').replace(/\/+$/, '');
   const platformWallet = e('PLATFORM_WALLET');
@@ -25,6 +26,10 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
   else if (!(chain && chain.prepareLaunch && store)) console.log('Launching is off: the chain connection is not set up (check RPC_URL).');
   const tradeOn = e('TRADE') !== 'no' && Boolean(chain && chain.prepareSwap);
   const maxBuySol = Number(e('LAUNCH_MAX_BUY', '2'));
+  const claimOn = Boolean(canClaim && chain && chain.claimCreator && chain.claimPartner && isAddress(platformWallet) && e('CLAIM_BUTTON') !== 'no');
+  const claimMinLamports = lamports(e('CLAIM_BUTTON_MIN_SOL', '0.001'));
+  const claimCooldownMs = Math.max(0, Number(e('CLAIM_BUTTON_COOLDOWN_MIN', '10'))) * 60000;
+  const claimedAt = new Map(); // coin id -> time of the last claim attempt (or in progress)
   const limit = createLimiter({ now });
   const cache = new Map(); // coin id -> { at, value }
 
@@ -77,10 +82,29 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
   }
 
   async function post(req, res, p) {
-    if (!['/api/launch/prepare', '/api/launch/confirm', '/api/trade/prepare'].includes(p)) return json(res, 404, { error: 'not_found' });
+    if (!['/api/launch/prepare', '/api/launch/confirm', '/api/trade/prepare', '/api/claim'].includes(p)) return json(res, 404, { error: 'not_found' });
     let body;
     try { body = await readBody(req); } catch (err) { return json(res, err.code === 'too_big' ? 413 : 400, { error: err.code || 'bad_request' }); }
     const ip = ipOf(req);
+
+    if (p === '/api/claim') {
+      // Anyone may press it, but fees only ever go to the coin's creator wallet and the platform wallet.
+      if (!claimOn) return json(res, 403, { error: 'claim_off' });
+      if (!limit('k:' + ip, 20, 3600000)) return json(res, 429, { error: 'slow_down' });
+      const coin = loadCoins(e, store).find(x => x.id === String(body.id || '') && !x.simulated && x.pool && launched(x));
+      if (!coin) return json(res, 404, { error: 'unknown_coin' });
+      const last = claimedAt.get(coin.id);
+      if (last && now() - last < claimCooldownMs) return json(res, 429, { error: 'claimed_recently', waitMin: Math.max(1, Math.ceil((claimCooldownMs - (now() - last)) / 60000)) });
+      claimedAt.set(coin.id, now()); // also blocks a second press while this one is running
+      try {
+        const [r] = await runClaims({ chain, coins: [coin], platformWallet, minLamports: claimMinLamports, send: true, now });
+        if (!r || r.skipped) { claimedAt.delete(coin.id); return json(res, 400, { error: 'too_small', minSol: sol(claimMinLamports) }); }
+        if (r.error) return json(res, 500, { error: 'claim_failed' });
+        try { writeJson(path.join(dataDir, 'payouts.json'), readJson(path.join(dataDir, 'payouts.json'), []).concat(r).slice(-200)); } catch { /* the claim already happened; the log is a convenience */ }
+        cache.delete(coin.id);
+        return json(res, 200, { ok: true, creatorSol: sol(r.creatorLamports), platformSol: sol(r.platformLamports), creatorTx: r.creatorTx || '', platformTx: r.platformTx || '' });
+      } catch { return json(res, 500, { error: 'claim_failed' }); }
+    }
 
     if (p === '/api/trade/prepare') {
       if (!tradeOn) return json(res, 403, { error: 'trade_off' });
@@ -129,7 +153,7 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
     if (req.method === 'POST') return post(req, res, p);
     if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method_not_allowed' });
     const coins = loadCoins(e, store);
-    if (p === '/api/config') return json(res, 200, { cluster, platformWallet, siteUrl, launch: launchOn, trade: tradeOn, maxBuySol, explorer: 'https://explorer.solana.com', explorerSuffix: cluster === 'mainnet-beta' ? '' : '?cluster=devnet' });
+    if (p === '/api/config') return json(res, 200, { cluster, platformWallet, siteUrl, launch: launchOn, trade: tradeOn, claim: claimOn, claimMinSol: sol(claimMinLamports), maxBuySol, explorer: 'https://explorer.solana.com', explorerSuffix: cluster === 'mainnet-beta' ? '' : '?cluster=devnet' });
     if (p === '/api/coins') return json(res, 200, await Promise.all(coins.map(view)));
     if (p.startsWith('/api/coins/')) {
       const coin = coins.find(c => c.id === decodeURIComponent(p.slice(11)));
@@ -165,7 +189,7 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
 
 // Start the server only when run directly (not when a test imports it).
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  let chain = null;
+  let chain = null, canClaim = false;
   const c = clusterName();
   const dataDir = env('DATA_DIR', path.join(HERE, 'data'));
   const store = createStore({ dir: dataDir });
@@ -177,7 +201,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     // Otherwise it runs with a throwaway key that holds nothing.
     let keeper = Keypair.generate();
     if (env('LAUNCH') === 'yes') {
-      try { keeper = Keypair.fromSecretKey(keeperBytes()); } catch (err) {
+      try { keeper = Keypair.fromSecretKey(keeperBytes()); canClaim = env('CLAIM_BUTTON') !== 'no'; } catch (err) {
         console.error('LAUNCH is on but the keeper key is not usable, so launching is switched off: ' + err.message);
         process.env.LAUNCH = 'no';
       }
@@ -185,7 +209,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     chain = await createChain({ connection: new Connection(rpcUrl(c), 'confirmed'), keeper });
   }
   const port = Number(env('PORT', '3000'));
-  http.createServer(createApp({ chain, store })).listen(port, () => console.log('AutoPayment on Meteora (' + c + ') on port ' + port));
+  http.createServer(createApp({ chain, canClaim, store })).listen(port, () => console.log('AutoPayment on Meteora (' + c + ') on port ' + port));
 
   // OPTIONAL fee claimer inside the site, OFF by default. AUTOCLAIM=dry only logs what it would send; AUTOCLAIM=yes really
   // sends. Turning it on means putting the keeper wallet's key in this site's settings (KEEPER_SECRET_KEY).

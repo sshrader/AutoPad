@@ -8,6 +8,31 @@
   function fmt(n, d) { return (typeof n === 'number' && isFinite(n)) ? n.toLocaleString(undefined, { maximumFractionDigits: d === undefined ? 3 : d }) : '–'; }
   function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); }); }
   function link(href, text) { var a = el('a', '', text); a.href = href; a.target = '_blank'; a.rel = 'noopener'; return a; }
+  function claimBox(c) {
+    var box = el('div'); box.style.marginTop = '1rem';
+    var btn = el('button', 'btn', 'Claim fees now'); btn.type = 'button';
+    var msg = el('p', 'msg'); msg.setAttribute('role', 'status'); msg.setAttribute('aria-live', 'polite');
+    var hint = el('p', 'sub', 'Anyone can press this. The creator share goes to the creator wallet and the platform share to the platform wallet. Fees are also claimed automatically on a schedule.');
+    var NOTE = { too_small: 'Not enough fees waiting yet.', slow_down: 'Too many tries. Wait a little and try again.', claim_failed: 'The claim did not go through. Try again in a minute.', claim_off: 'Claiming is not available right now.' };
+    btn.addEventListener('click', function () {
+      btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Claiming…';
+      fetch('/api/claim', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: c.id }) })
+        .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+        .then(function (r) {
+          if (r.j.ok) {
+            msg.className = 'msg good'; msg.textContent = 'Done. Creator got ' + fmt(r.j.creatorSol, 5) + ' SOL, platform got ' + fmt(r.j.platformSol, 5) + ' SOL. ';
+            if (r.j.creatorTx) msg.appendChild(link(exp('tx', r.j.creatorTx), 'View transaction'));
+            setTimeout(function () { location.reload(); }, 4000); return;
+          }
+          msg.className = 'msg bad';
+          if (r.j.error === 'claimed_recently') msg.textContent = 'Fees were just claimed. Try again in about ' + r.j.waitMin + ' min.';
+          else if (r.j.error === 'too_small') msg.textContent = 'Not enough fees waiting yet. The minimum is ' + r.j.minSol + ' SOL.';
+          else msg.textContent = NOTE[r.j.error] || 'Something went wrong. Try again.';
+          btn.disabled = false;
+        }).catch(function () { msg.className = 'msg bad'; msg.textContent = 'Could not reach the site. Try again.'; btn.disabled = false; });
+    });
+    box.appendChild(btn); box.appendChild(msg); box.appendChild(hint); return box;
+  }
   function exp(kind, addr) { return cfg.explorer + '/' + kind + '/' + addr + cfg.explorerSuffix; }
   function badge(c) {
     var b = el('div', 'badge');
@@ -102,6 +127,7 @@
         else { g.appendChild(cell('Waiting for creator', fmt(c.live.pendingCreatorSol, 4) + ' SOL')); g.appendChild(cell('Waiting for platform', fmt(c.live.pendingPlatformSol, 4) + ' SOL')); }
         p.appendChild(g);
       }
+      if (cfg.claim && !c.simulated && c.launched && c.live) p.appendChild(claimBox(c));
       root.appendChild(p);
       if (cfg.trade && !c.simulated && c.launched && c.pool && c.live && !c.live.isMigrated) root.appendChild(tradePanel(c));
       var w = panel('Where it lives');

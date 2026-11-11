@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createApp } from '../server.mjs';
 
 const A = '2H9r5ik8nqxkkr3tNtjW4KijXBygcRy7wNAGAmrTMxZ';
@@ -60,5 +63,29 @@ test('serves metadata for the launch and pages, rejects writes and path tricks',
   assert.equal((await fetch(s.base + '/api/coins', { method: 'PUT' })).status, 405);
   assert.equal((await fetch(s.base + '/..%2fserver.mjs')).status, 404);
   assert.equal((await fetch(s.base + '/%2e%2e/server.mjs')).status, 404);
+  s.close();
+});
+
+test('claim button: claims for a launched coin, then waits for the cooldown', async () => {
+  const sent = [];
+  const ch = { ...chain, claimCreator: async (pool, to) => { sent.push(['c', to]); return 'TXC'; }, claimPartner: async (pool, to) => { sent.push(['p', to]); return 'TXP'; } };
+  const vars = { FLAGSHIP_CREATOR: A, FLAGSHIP_MINT: B, FLAGSHIP_POOL: C, PLATFORM_WALLET: B };
+  const e = (n, d = '') => String(vars[n] ?? d);
+  const srv = http.createServer(createApp({ e, chain: ch, canClaim: true, dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'k-')) }));
+  await new Promise(r => srv.listen(0, r));
+  const base = 'http://127.0.0.1:' + srv.address().port;
+  const post = body => fetch(base + '/api/claim', { method: 'POST', body: JSON.stringify(body) });
+  assert.equal((await (await fetch(base + '/api/config')).json()).claim, true);
+  const r1 = await post({ id: 'flagship' }); const j1 = await r1.json();
+  assert.equal(r1.status, 200); assert.equal(j1.creatorTx, 'TXC');
+  assert.deepEqual(sent, [['c', A], ['p', B]]);
+  assert.equal((await post({ id: 'flagship' })).status, 429);
+  assert.equal((await post({ id: 'paycat' })).status, 404);
+  srv.close();
+});
+
+test('claim button is off without the keeper', async () => {
+  const s = await serve({ FLAGSHIP_CREATOR: A, FLAGSHIP_MINT: B, FLAGSHIP_POOL: C, PLATFORM_WALLET: B }, chain);
+  assert.equal((await fetch(s.base + '/api/claim', { method: 'POST', body: '{}' })).status, 403);
   s.close();
 });
