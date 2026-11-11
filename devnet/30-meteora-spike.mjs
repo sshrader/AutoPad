@@ -49,25 +49,37 @@ if (step === 'exports') {
   const { platform } = keys();
   const config = Keypair.generate();
   const creatorPct = Number(arg('creator-pct', '90'));
+  const feeBps = Number(arg('fee-bps', '100'));
   const curve = buildCurveWithMarketCap({
-    totalTokenSupply: 1_000_000_000,
+    token: {
+      tokenType: TokenType.Token2022, // AutoPay's airdrop code already handles Token-2022
+      tokenBaseDecimal: TokenDecimal.SIX,
+      tokenQuoteDecimal: TokenDecimal.NINE,
+      tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+      totalTokenSupply: 1_000_000_000,
+      leftover: 0,
+    },
+    fee: {
+      baseFeeParams: { baseFeeMode: BaseFeeMode.FeeSchedulerLinear, feeSchedulerParam: { startingFeeBps: feeBps, endingFeeBps: feeBps, numberOfPeriod: 0, totalDuration: 0 } },
+      dynamicFeeEnabled: false,
+      collectFeeMode: CollectFeeMode.QuoteToken, // fees in SOL only
+      creatorTradingFeePercentage: creatorPct,
+      poolCreationFee: 0,
+      enableFirstSwapWithMinFee: false,
+    },
+    migration: {
+      migrationOption: MigrationOption.MET_DAMM_V2,
+      migrationFeeOption: MigrationFeeOption.FixedBps100,
+      migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
+    },
+    liquidityDistribution: {
+      partnerLiquidityPercentage: 0, partnerPermanentLockedLiquidityPercentage: 100,
+      creatorLiquidityPercentage: 0, creatorPermanentLockedLiquidityPercentage: 0,
+    },
+    lockedVesting: { totalLockedVestingAmount: 0, numberOfVestingPeriod: 0, cliffUnlockAmount: 0, totalVestingDuration: 0, cliffDurationFromMigrationTime: 0 },
+    activationType: ActivationType.Slot,
     initialMarketCap: Number(arg('start-mcap', '20')),
     migrationMarketCap: Number(arg('grad-mcap', '60')), // small, so a test coin can graduate on devnet
-    migrationOption: MigrationOption.MET_DAMM_V2,
-    tokenBaseDecimal: TokenDecimal.SIX,
-    tokenQuoteDecimal: TokenDecimal.NINE,
-    lockedVestingParam: { totalLockedVestingAmount: 0, numberOfVestingPeriod: 0, cliffUnlockAmount: 0, totalVestingDuration: 0, cliffDurationFromMigrationTime: 0 },
-    baseFeeParams: { baseFeeMode: BaseFeeMode.FeeSchedulerLinear, feeSchedulerParam: { startingFeeBps: Number(arg('fee-bps', '100')), endingFeeBps: Number(arg('fee-bps', '100')), numberOfPeriod: 0, totalDuration: 0 } },
-    dynamicFeeEnabled: false,
-    activationType: ActivationType.Slot,
-    collectFeeMode: CollectFeeMode.QuoteToken, // fees in SOL only
-    migrationFeeOption: MigrationFeeOption.FixedBps100,
-    tokenType: TokenType.Token2022, // AutoPay's airdrop code already handles Token-2022
-    partnerLpPercentage: 0, creatorLpPercentage: 0, partnerLockedLpPercentage: 100, creatorLockedLpPercentage: 0,
-    creatorTradingFeePercentage: creatorPct,
-    leftover: 0,
-    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
-    migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
   });
   const tx = await client.partner.createConfig({
     config: config.publicKey, feeClaimer: platform.publicKey, leftoverReceiver: platform.publicKey,
