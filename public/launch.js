@@ -226,41 +226,44 @@
   }
   if ($('fl-go')) $('fl-go').addEventListener('click', freeLaunch);
 
-  // The owner's box: with the platform wallet connected, make a code here and watch it go from ready to used.
+  // The owner's box: with the platform wallet connected, make one or several codes here and watch each go from ready to used.
   (function () {
     const box = $('owner-free');
     if (!box) return;
-    let admins = [], addr = '', code = '', timer = null;
-    const KEY = 'autopay-free-code';
-    try { code = localStorage.getItem(KEY) || ''; } catch (e) { code = ''; }
+    let admins = [], addr = '', codes = [], timer = null;
+    const KEY = 'autopay-free-codes';
+    try { codes = JSON.parse(localStorage.getItem(KEY) || '[]'); if (!Array.isArray(codes)) codes = []; } catch (e) { codes = []; }
     const osay = (t, bad) => { const e = $('of-status'); e.textContent = t; e.className = 'dl-status' + (bad ? ' bad' : ''); };
-    const LABEL = { ready: 'Ready: not used yet', working: 'In use right now…', used: 'Used', expired: 'Expired', unknown: 'Expired' };
+    const LABEL = { ready: 'Ready', working: 'In use right now…', used: 'Used', expired: 'Expired', unknown: 'Expired' };
     function show() {
       box.hidden = !(freeOn && addr && admins.indexOf(addr) !== -1);
-      $('of-code').hidden = !code; $('of-code').textContent = code;
     }
     async function poll() {
       clearTimeout(timer);
-      if (!code || box.hidden) { $('of-state').hidden = true; return; }
-      try {
-        const r = await fetch('/api/launch/free').then(x => x.json());
-        const st = r && r.state === 'none' ? 'unknown' : (r && r.code && r.code !== code ? 'unknown' : (r && r.state) || 'unknown');
-        $('of-state').hidden = false; $('of-state').textContent = LABEL[st] || st;
-        $('of-code').style.textDecoration = st === 'ready' || st === 'working' ? '' : 'line-through';
-        if (st === 'ready' || st === 'working') timer = setTimeout(poll, 8000);
-      } catch (e) { timer = setTimeout(poll, 15000); }
+      if (box.hidden || !codes.length) { $('of-list').textContent = ''; return; }
+      const rows = await Promise.all(codes.map(c => fetch('/api/launch/free?code=' + encodeURIComponent(c)).then(x => x.json()).then(r => (r && r.state) || 'unknown').catch(() => 'unknown')));
+      const list = $('of-list'); list.textContent = '';
+      let again = false;
+      codes.forEach((c, i) => {
+        const li = document.createElement('li'); li.className = 'row';
+        const code = document.createElement('code'); code.className = 'big'; code.textContent = c;
+        const st = rows[i]; if (st !== 'ready' && st !== 'working') code.style.textDecoration = 'line-through'; else again = true;
+        const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = LABEL[st] || st;
+        li.appendChild(code); li.appendChild(badge); list.appendChild(li);
+      });
+      timer = setTimeout(poll, again ? 8000 : 30000);
     }
     $('of-make').addEventListener('click', async () => {
       try {
-        const ts = Date.now();
+        const ts = Date.now(), count = Number($('of-count').value) || 1;
         osay('Approve the signature in your wallet. It does not spend anything.');
-        const signature = await W.signMessage('AutoPay: make a one-time free launch code. Wallet: ' + addr + '. Time: ' + ts);
-        const res = await fetch('/api/admin/freecode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: addr, ts: ts, signature: signature }) });
+        const signature = await W.signMessage('AutoPay: make a one-time free launch code. Wallet: ' + addr + '. Time: ' + ts + (count > 1 ? '. Codes: ' + count : ''));
+        const res = await fetch('/api/admin/freecode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: addr, ts: ts, count: count, signature: signature }) });
         const out = await res.json().catch(() => null);
-        if (!res.ok || !out || !out.code) { osay(({ too_many_open: 'There are already 10 unused codes.', not_admin: 'This wallet cannot make codes.', stale: 'Your clock looks off. Try again.' })[out && out.error] || 'Could not make a code.', true); return; }
-        code = out.code;
-        try { localStorage.setItem(KEY, code); } catch (e) { /* the code is still on screen */ }
-        osay('Give this code to one tester.');
+        if (!res.ok || !out || !out.code) { osay(({ too_many_open: 'That would be more than 10 unused codes at once.', not_admin: 'This wallet cannot make codes.', stale: 'Your clock looks off. Try again.', bad_count: 'Pick 1 to 10 codes.' })[out && out.error] || 'Could not make codes.', true); return; }
+        codes = (out.codes || [out.code]).concat(codes).slice(0, 30);
+        try { localStorage.setItem(KEY, JSON.stringify(codes)); } catch (e) { /* the codes are still on screen */ }
+        osay(count > 1 ? 'Made ' + count + ' codes. Each works once.' : 'Made a code. It works once.');
         show(); poll();
       } catch (err) { osay('That was not approved.', true); }
     });
@@ -268,54 +271,6 @@
     document.addEventListener('animalpad:wallet', e => { addr = (e.detail && e.detail.address) || ''; show(); poll(); });
     document.addEventListener('animalpad:freeconfig', e => { admins = (e.detail && e.detail.admins) || []; show(); poll(); });
   })();
-
-  // Everyone sees the current free launch code. One person uses it and gets a free launch, then it shows as used.
-  (function () {
-    const box = $('free-banner');
-    if (!box) return;
-    let timer = null;
-    async function load() {
-      clearTimeout(timer);
-      if (!freeOn) return;
-      try {
-        const r = await fetch('/api/launch/free').then(x => x.json());
-        const live = r && (r.state === 'ready' || r.state === 'working');
-        box.hidden = !r || r.state === 'none';
-        $('fb-code').hidden = !live; $('fb-use').hidden = !live;
-        if (live) {
-          $('fb-code').textContent = r.code;
-          $('fb-text').textContent = r.state === 'working' ? 'Someone is using this code right now. If it fails, it opens up again.' : 'One person who uses this code gets a free launch on devnet, with no wallet. Fill in your coin, then enter the code (or press Use this code).';
-        } else $('fb-text').textContent = 'The last free launch code has been used or has expired. Check back for the next one.';
-        timer = setTimeout(load, live ? 6000 : 20000);
-      } catch (e) { timer = setTimeout(load, 20000); }
-    }
-    $('fb-use').addEventListener('click', () => {
-      $('fl-code').value = $('fb-code').textContent;
-      if (staged) $('free-opt').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      else { const st = $('start'); if (st) st.scrollIntoView({ behavior: 'smooth' }); }
-    });
-    document.addEventListener('animalpad:freeconfig', load);
-  })();
-
-  // The Copy button on a coin address strip.
-  document.addEventListener('click', async e => {
-    const b = e.target.closest && e.target.closest('.ca-copy');
-    if (!b) return;
-    const text = b.dataset.ca || '';
-    let ok = false;
-    try { await navigator.clipboard.writeText(text); ok = true; } catch (err) {
-      try {
-        const t = document.createElement('textarea');
-        t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
-        document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove();
-      } catch (e2) { ok = false; }
-    }
-    const was = b.dataset.label || b.textContent;
-    b.dataset.label = was;
-    b.textContent = ok ? 'Copied ✓' : 'Press Ctrl+C';
-    if (!ok) { const c = b.parentNode.querySelector('.cavalue'); if (c) { const r = document.createRange(); r.selectNodeContents(c); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } }
-    setTimeout(() => { b.textContent = was; }, 1800);
-  });
 
   document.addEventListener('animalpad:reset', () => { staged = null; pending = null; $('dl-result').hidden = true; say(''); render(); });
 

@@ -101,9 +101,10 @@
   </section>
 
   <section class="panel stack2" id="owner-free" hidden aria-labelledby="of-h">
-    <h2 id="of-h">Free test launch code</h2>
-    <p class="hint">Only you see this, because your platform wallet is connected. Make a code and give it to one tester. It works once and then shows as used.</p>
-    <div class="row"><button type="button" class="btn go" id="of-make">Make a code</button><code class="big" id="of-code" hidden></code><span class="badge" id="of-state" hidden></span></div>
+    <h2 id="of-h">Free test launch codes</h2>
+    <p class="hint">Only you see this, because your platform wallet is connected. Make one or several codes. Each works once. Visitors see one code at a time and how many are left.</p>
+    <div class="row"><label class="hint" for="of-count">How many</label><select id="of-count"><option>1</option><option>3</option><option>5</option><option>10</option></select><button type="button" class="btn go" id="of-make">Make codes</button></div>
+    <ul class="stack" id="of-list" style="list-style:none"></ul>
     <p class="dl-status" id="of-status" role="status"></p>
   </section>
 

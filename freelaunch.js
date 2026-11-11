@@ -12,7 +12,7 @@ const { verifySignature } = require('./sigverify');
 const ALPHA = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; // no 0/O/1/I/L
 const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const pretty = c => c.slice(0, 4) + '-' + c.slice(4);
-const messageFor = (wallet, ts) => 'AutoPay: make a one-time free launch code. Wallet: ' + wallet + '. Time: ' + ts;
+const messageFor = (wallet, ts, count) => 'AutoPay: make a one-time free launch code. Wallet: ' + wallet + '. Time: ' + ts + (count > 1 ? '. Codes: ' + count : '');
 
 function createFreeLaunch(opts) {
   const o = opts || {};
@@ -39,16 +39,22 @@ function createFreeLaunch(opts) {
   function issue(b) {
     const wallet = b && typeof b.wallet === 'string' ? b.wallet : '';
     const ts = Number(b && b.ts);
+    const n = b && b.count !== undefined ? Number(b.count) : 1;
     if (!wallet || admins.indexOf(wallet) === -1) return { status: 403, body: { error: 'not_admin' } };
+    if (!Number.isInteger(n) || n < 1 || n > maxOpen) return { status: 400, body: { error: 'bad_count' } };
     if (!Number.isFinite(ts) || Math.abs(now() - ts) > 5 * 60000) return { status: 400, body: { error: 'stale' } };
-    if (!verifySignature(wallet, messageFor(wallet, ts), b.signature)) return { status: 401, body: { error: 'bad_signature' } };
+    if (!verifySignature(wallet, messageFor(wallet, ts, n), b.signature)) return { status: 401, body: { error: 'bad_signature' } };
     const open = Object.keys(codes).filter(k => live(codes[k]));
-    if (open.length >= maxOpen) return { status: 409, body: { error: 'too_many_open' } };
-    let code = '';
-    for (const x of crypto.randomBytes(8)) code += ALPHA[x % ALPHA.length];
-    codes[code] = { at: now() };
+    if (open.length + n > maxOpen) return { status: 409, body: { error: 'too_many_open', open: open.length } };
+    const made = [];
+    for (let i = 0; i < n; i++) {
+      let code = '';
+      do { code = ''; for (const x of crypto.randomBytes(8)) code += ALPHA[x % ALPHA.length]; } while (codes[code]);
+      codes[code] = { at: now() + i };
+      made.push(pretty(code));
+    }
     save();
-    return { status: 200, body: { code: pretty(code), expiresAt: now() + ttlMs, open: open.length + 1 } };
+    return { status: 200, body: { code: made[0], codes: made, expiresAt: now() + ttlMs, open: open.length + n } };
   }
 
   const valid = code => live(codes[norm(code)]) && !codes[norm(code)].busy;
@@ -98,11 +104,11 @@ function createFreeLaunch(opts) {
 
   // The newest code is shown to every visitor: one person who uses it gets the free launch, then it reads as used.
   function current() {
+    const liveKeys = Object.keys(codes).filter(k => live(codes[k])).sort((a, b) => codes[a].at - codes[b].at);
+    if (liveKeys.length) { const k = liveKeys.find(x => status(x) === 'ready') || liveKeys[0]; return { state: status(k), code: pretty(k), left: liveKeys.length, expiresAt: codes[k].at + ttlMs }; }
     let key = '';
     for (const k of Object.keys(codes)) if (!key || codes[k].at > codes[key].at) key = k;
-    if (!key) return { state: 'none' };
-    const state = status(key);
-    return state === 'ready' || state === 'working' ? { state, code: pretty(key), expiresAt: codes[key].at + ttlMs } : { state, usedAt: codes[key].usedAt || 0 };
+    return key ? { state: status(key), left: 0, usedAt: codes[key].usedAt || 0 } : { state: 'none', left: 0 };
   }
 
   return { issue, launch, valid, status, current, admins, messageFor };

@@ -562,6 +562,8 @@ function createApp(opts) {
     if (pathname === '/api/launch/free' && req.method === 'GET') {
       const noStore = Object.assign({}, JSON_TYPE, { 'Cache-Control': 'no-store' });
       if (!freeLaunch) return send(res, 404, JSON.stringify({ error: 'free_off' }), noStore);
+      const asked = url.searchParams.get('code');
+      if (asked) return send(res, 200, JSON.stringify({ state: freeLaunch.status(asked) }), noStore);
       return send(res, 200, JSON.stringify(freeLaunch.current()), Object.assign({}, noStore, { 'Cache-Control': 'public, max-age=3' }));
     }
     if (pathname === '/api/launch/free' && req.method === 'POST') {

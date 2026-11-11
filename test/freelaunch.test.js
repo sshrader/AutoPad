@@ -28,7 +28,7 @@ function setup(over) {
   };
   const io = { payer: key(), async signSend(x) { sent.push(x); return 'sig'; } };
   const fl = createFreeLaunch({ launcher, io, admins: [admin.address], now: () => t, logger: quiet, sleep: async () => {} });
-  const ask = () => { const ts = t; return fl.issue({ wallet: admin.address, ts, signature: admin.sign(messageFor(admin.address, ts)) }); };
+  const ask = (count) => { const ts = t; return fl.issue({ wallet: admin.address, ts, count, signature: admin.sign(messageFor(admin.address, ts, count)) }); };
   return { fl, admin, io, sent, ask, launcher, tick: ms => { t += ms; } };
 }
 
@@ -110,9 +110,9 @@ test('the website route launches with a code, records the coin, and the config s
   } finally { srv.closeAllConnections(); await new Promise(r => srv.close(r)); }
 });
 
-test('the newest code is public until it is used, then reads as used', async () => {
+test('the current code is public until it is used, then reads as used', async () => {
   const s = setup();
-  assert.deepEqual(s.fl.current(), { state: 'none' });
+  assert.deepEqual(s.fl.current(), { state: 'none', left: 0 });
   const code = s.ask().body.code;
   assert.equal(s.fl.current().code, code);
   assert.equal(s.fl.current().state, 'ready');
@@ -123,4 +123,22 @@ test('the newest code is public until it is used, then reads as used', async () 
   s.tick(1000);
   const next = s.ask().body.code;
   assert.equal(s.fl.current().code, next);
+});
+
+test('several codes can be made at once; visitors see them one at a time, oldest first, with a count left', async () => {
+  const s = setup();
+  const r = s.ask(3);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.codes.length, 3);
+  assert.equal(new Set(r.body.codes).size, 3);
+  assert.equal(s.fl.current().code, r.body.codes[0]);
+  assert.equal(s.fl.current().left, 3);
+  assert.equal(s.ask(8).status, 409, 'more than ten open codes is refused');
+  assert.equal(s.ask(0).status, 400);
+  await s.fl.launch({ code: r.body.codes[0], name: 'a', symbol: 'A' }, {});
+  assert.equal(s.fl.current().code, r.body.codes[1]);
+  assert.equal(s.fl.current().left, 2);
+  // a count that was not the one signed is refused
+  const ts = 1000000;
+  assert.equal(s.fl.issue({ wallet: s.admin.address, ts, count: 5, signature: s.admin.sign(messageFor(s.admin.address, ts, 1)) }).status, 401);
 });
