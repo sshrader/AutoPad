@@ -85,7 +85,11 @@
       document.title = c.name + ' · AutoPayment on Meteora'; root.textContent = '';
       var head = el('div', 'hero'); var row = el('div'); row.style.cssText = 'display:flex;gap:1rem;align-items:center;flex-wrap:wrap';
       row.appendChild(badge(c)); var h = el('h1', '', c.name + ' '); h.style.fontSize = 'clamp(1.7rem,4vw,2.4rem)'; h.appendChild(el('span', 'mono', '$' + c.symbol)); row.appendChild(h); head.appendChild(row);
-      var tg = el('div'); tg.style.marginTop = '.5rem'; tags(c, tg); head.appendChild(tg); head.appendChild(el('p', '', c.description)); root.appendChild(head);
+      var tg = el('div'); tg.style.marginTop = '.5rem'; tags(c, tg); head.appendChild(tg); head.appendChild(el('p', '', c.description));
+      var soc = el('div'); soc.style.cssText = 'display:flex;gap:1rem;flex-wrap:wrap;margin-top:.5rem';
+      [['Website', c.website], ['X', c.twitter], ['Telegram', c.telegram]].forEach(function (x) { if (x[1] && /^https?:\/\//.test(x[1])) soc.appendChild(link(x[1], x[0])); });
+      if (soc.children.length) head.appendChild(soc);
+      root.appendChild(head);
       var s = stat(c), p = panel('Curve and fees');
       if (!c.launched) p.appendChild(el('p', '', 'Not launched yet.'));
       else if (!s) p.appendChild(el('p', '', 'Live numbers are not available right now.'));

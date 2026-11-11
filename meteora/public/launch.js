@@ -3,7 +3,7 @@
 (function () {
   var W = window.APWallet, cfg = { explorer: 'https://explorer.solana.com', explorerSuffix: '?cluster=devnet', maxBuySol: 2 };
   function $(id) { return document.getElementById(id); }
-  var MSG = { bad_name: 'The name must be 1 to 32 characters.', bad_symbol: 'The ticker must be 2 to 10 letters or numbers.', bad_description: 'The description is too long.', bad_buy: 'Your first buy must be 0, or between 0.01 and the limit.', bad_image: 'Pick a PNG or JPEG picture.', bad_wallet: 'Connect your wallet first.', slow_down: 'Too many tries. Wait a little and try again.', launch_off: 'Launching is not open yet.', launch_failed: 'Could not build the launch. Try again.', too_big: 'That picture is too big.', not_on_chain_yet: 'The launch has not shown up on chain yet.', flagship_first: 'The flagship coin launches first. Launching opens to everyone right after.' };
+  var MSG = { bad_name: 'The name must be 1 to 32 characters.', bad_symbol: 'The ticker must be 2 to 10 letters or numbers.', bad_description: 'The description is too long.', bad_link: 'One of the links does not look right. Use a full address like https://yourcoin.com, or leave it empty.', bad_buy: 'Your first buy must be 0, or between 0.01 and the limit.', bad_image: 'Pick a PNG or JPEG picture.', bad_wallet: 'Connect your wallet first.', slow_down: 'Too many tries. Wait a little and try again.', launch_off: 'Launching is not open yet.', launch_failed: 'Could not build the launch. Try again.', too_big: 'That picture is too big.', not_on_chain_yet: 'The launch has not shown up on chain yet.', flagship_first: 'The flagship coin launches first. Launching opens to everyone right after.' };
   function say(t, kind) { var m = $('msg'); m.textContent = t; m.className = 'msg' + (kind ? ' ' + kind : ''); }
   function post(url, body) { return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status = r.status; return j; }); }); }
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -41,7 +41,7 @@
     go.disabled = true; say('Getting ready…');
     var wallet, sentSig = '';
     (W.address ? Promise.resolve(W.address) : W.connect()).then(function (a) { wallet = a; return cropImage(file); }).then(b64).then(function (img) {
-      return post('/api/launch/prepare', { wallet: wallet, name: $('name').value, symbol: $('sym').value, description: $('desc').value, buySol: Number($('buy').value || 0), image: img });
+      return post('/api/launch/prepare', { wallet: wallet, name: $('name').value, symbol: $('sym').value, description: $('desc').value, website: $('web').value, twitter: $('tw').value, telegram: $('tg').value, buySol: Number($('buy').value || 0), image: img });
     }).then(function (out) {
       if (!out.tx) throw new Error(out.error || 'launch_failed');
       say('Approve the transaction in your wallet…');

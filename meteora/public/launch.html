@@ -14,6 +14,9 @@
 <div class="row"><label>Name<input id="name" maxlength="32" autocomplete="off" placeholder="Pay Cat" required></label>
 <label>Ticker<input id="sym" maxlength="10" autocomplete="off" placeholder="PAYCAT" required></label></div>
 <label>Description<small>Optional, up to 200 characters.</small><textarea id="desc" maxlength="200" placeholder="A cat that gets a paycheck every ten minutes."></textarea></label>
+<div class="row"><label>Website<small>Optional.</small><input id="web" autocomplete="off" placeholder="yourcoin.com"></label>
+<label>X (Twitter)<small>Optional.</small><input id="tw" autocomplete="off" placeholder="@yourcoin"></label></div>
+<label>Telegram<small>Optional.</small><input id="tg" autocomplete="off" placeholder="t.me/yourcoin"></label>
 <label>Your first buy in SOL<small id="buyhint">Optional. It happens in the same transaction as the launch, so nobody can get in front of you.</small><input id="buy" inputmode="decimal" value="0.1"></label>
 <div class="row"><button class="btn" id="go" type="submit">Launch</button></div>
 <p class="msg" id="msg" role="status" aria-live="polite"></p>

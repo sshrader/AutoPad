@@ -157,3 +157,14 @@ test('until the flagship exists only its creator may launch; then it becomes the
   assert.equal((await post(s, '/api/launch/prepare', { ...good, wallet: stranger, symbol: 'OTHER' })).status, 200);
   s.close();
 });
+
+test('checkLaunch handles website, X and Telegram links', () => {
+  const r = checkLaunch({ ...good, website: 'paydog.com', twitter: '@paydog', telegram: 't.me/paydog' });
+  assert.equal(r.ok.website, 'https://paydog.com/');
+  assert.equal(r.ok.twitter, 'https://x.com/paydog');
+  assert.equal(r.ok.telegram, 'https://t.me/paydog');
+  assert.equal(checkLaunch(good).ok.website, '');
+  assert.equal(checkLaunch({ ...good, website: 'javascript:alert(1)' }).error, 'bad_link');
+  assert.equal(checkLaunch({ ...good, twitter: 'https://evil.com/x' }).error, 'bad_link');
+  assert.equal(checkLaunch({ ...good, website: 'a b.com' }).error, 'bad_link');
+});

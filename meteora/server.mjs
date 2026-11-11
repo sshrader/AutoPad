@@ -44,11 +44,19 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
   const payoutLog = () => readJson(path.join(dataDir, 'payouts.json'), []);
 
   async function view(coin) {
-    const base = { id: coin.id, name: coin.name, symbol: coin.symbol, description: coin.description, creator: coin.creator, simulated: coin.simulated, flagship: coin.flagship, color: coin.color || '', image: coin.image || '', mint: coin.mint || '', pool: coin.pool || '', launched: coin.simulated ? true : launched(coin) };
+    const base = { id: coin.id, name: coin.name, symbol: coin.symbol, description: coin.description, creator: coin.creator, website: coin.website || '', twitter: coin.twitter || '', telegram: coin.telegram || '', simulated: coin.simulated, flagship: coin.flagship, color: coin.color || '', image: coin.image || '', mint: coin.mint || '', pool: coin.pool || '', launched: coin.simulated ? true : launched(coin) };
     if (coin.simulated) return { ...base, stats: { progress: coin.progress, mcapSol: coin.mcapSol, collectedSol: coin.feesSol, paidSol: coin.paidSol, trades: coin.trades, ageHours: coin.ageHours } };
     return { ...base, live: await live(coin) };
   }
 
+  // Token metadata that wallets and trading sites read (name, picture, website, X, Telegram).
+  const metaOf = (c, image, external) => {
+    const m = { name: c.name, symbol: c.symbol, description: c.description, image, external_url: external };
+    if (c.website) m.website = c.website;
+    if (c.twitter) m.twitter = c.twitter;
+    if (c.telegram) m.telegram = c.telegram;
+    return m;
+  };
   const json = (res, code, body) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
   const ipOf = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 
@@ -99,7 +107,7 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
       const uri = siteUrl + '/meta/' + id + '.json';
       try {
         const made = await chain.prepareLaunch({ config: dbcConfig, name: c.ok.name, symbol: c.ok.symbol, uri, buyer: c.ok.wallet, buySol: c.ok.buySol });
-        store.addPending({ id, name: c.ok.name, symbol: c.ok.symbol, description: c.ok.description, creator: c.ok.wallet, mint: made.mint, pool: made.pool }, c.ok.image, c.ok.ext);
+        store.addPending({ id, name: c.ok.name, symbol: c.ok.symbol, description: c.ok.description, website: c.ok.website, twitter: c.ok.twitter, telegram: c.ok.telegram, creator: c.ok.wallet, mint: made.mint, pool: made.pool }, c.ok.image, c.ok.ext);
         return json(res, 200, { id, tx: made.tx, mint: made.mint, pool: made.pool });
       } catch { return json(res, 500, { error: 'launch_failed' }); }
     }
@@ -130,13 +138,13 @@ export function createApp({ e = env, chain = null, store = null, now = Date.now,
     if (p === '/api/payouts') return json(res, 200, payoutLog().slice(-50).reverse());
     if (p === '/meta/flagship.json') {
       const f = coins[0];
-      return json(res, 200, { name: f.name, symbol: f.symbol, description: f.description, image: siteUrl + '/flagship.png', external_url: siteUrl });
+      return json(res, 200, metaOf(f, siteUrl + '/flagship.png', f.website || siteUrl));
     }
     const metaId = /^\/meta\/([a-z0-9-]{3,40})\.json$/.exec(p);
     if (metaId && store) {
       const c = store.get(metaId[1]);
       if (!c) return json(res, 404, { error: 'not_found' });
-      return json(res, 200, { name: c.name, symbol: c.symbol, description: c.description, image: siteUrl + c.image, external_url: siteUrl + '/coin?id=' + c.id });
+      return json(res, 200, metaOf(c, siteUrl + c.image, c.website || siteUrl + '/coin?id=' + c.id));
     }
     const img = /^\/img\/([a-z0-9-]{3,40}\.(png|jpg))$/.exec(p);
     if (img && store) {
