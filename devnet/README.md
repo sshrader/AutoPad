@@ -10,5 +10,6 @@ Command-line helpers. Nothing here is used by the website.
 | `10-sweep-payer.mjs <address> [--yes]` | Sends everything left in a payer wallet file to another address. |
 | `12-make-lookup-table.mjs <platform wallet> [--yes]` | Makes and freezes the shared lookup table that lets coin creation and the first buy be one transaction. Lists the addresses first; creates nothing without --yes. |
 | `11-check-pump.mjs <wallet> [<live mint>]` | Simulates AutoPay's create-coin transaction (and a 0.01 SOL buy of a live pump.fun coin if you pass its mint). Spends nothing. |
+| `30-meteora-spike.mjs <step>` | Meteora experiment, devnet only: `setup`, `config`, `pool`, `trade`, `claim`, `status`. Proves the keeper wallet can be the pool creator and pay creator fees straight to another wallet. |
 
 Run `npm install` in this folder first. For mainnet, set `CLUSTER=mainnet-beta MAINNET_OK=yes RPC_URL=<mainnet rpc>`.

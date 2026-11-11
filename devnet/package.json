@@ -6,12 +6,16 @@
   "description": "Command-line helpers for AutoPay: throwaway keys, a payer wallet, and a free simulate-only check of the pump.fun transactions. Not used by the website.",
   "scripts": {
     "keys": "node 00-keys.mjs",
-    "check": "node 11-check-pump.mjs"
+    "check": "node 11-check-pump.mjs",
+    "meteora": "node 30-meteora-spike.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.98.0"
+    "@solana/web3.js": "^1.98.0",
+    "@meteora-ag/dynamic-bonding-curve-sdk": "latest",
+    "@solana/spl-token": "^0.4.9",
+    "bn.js": "^5.2.1"
   }
 }
