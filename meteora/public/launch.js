@@ -39,11 +39,16 @@
     if (!file) return say('Pick a picture first.', 'bad');
     if (!$('name').value.trim() || !$('sym').value.trim()) return say('Enter a name and a ticker.', 'bad');
     go.disabled = true; say('Getting ready…');
-    var wallet, sentSig = '';
+    var wallet, sentSig = '', mint = '', gmgnTab = null;
+    // Opened now, while the click still counts, so the browser allows it. It is pointed at GMGN once the coin is confirmed.
+    if (cfg.cluster === 'mainnet-beta') {
+      try { gmgnTab = window.open('about:blank', '_blank'); if (gmgnTab) { gmgnTab.document.title = 'Launching…'; gmgnTab.document.body.style.cssText = 'font:16px system-ui;padding:2rem'; gmgnTab.document.body.textContent = 'Launching your coin. This tab will open it on GMGN when it is live.'; } } catch (err) { gmgnTab = null; }
+    }
     (W.address ? Promise.resolve(W.address) : W.connect()).then(function (a) { wallet = a; return cropImage(file); }).then(b64).then(function (img) {
       return post('/api/launch/prepare', { wallet: wallet, name: $('name').value, symbol: $('sym').value, description: $('desc').value, website: $('web').value, twitter: $('tw').value, telegram: $('tg').value, buySol: Number($('buy').value || 0), image: img });
     }).then(function (out) {
       if (!out.tx) throw new Error(out.error || 'launch_failed');
+      mint = out.mint || '';
       say('Approve the transaction in your wallet…');
       return W.signAndSend(out.tx).then(function (sig) { sentSig = sig; return { id: out.id, sig: sig }; });
     }).then(function (r) {
@@ -58,10 +63,14 @@
       }
       return check();
     }).then(function (r) {
+      var gm = mint && cfg.cluster === 'mainnet-beta' ? 'https://gmgn.ai/sol/token/' + mint : '';
+      if (gm && gmgnTab && !gmgnTab.closed) { try { gmgnTab.location.href = gm; } catch (err) { /* the link below still works */ } }
       var m = $('msg'); m.className = 'msg good'; m.textContent = 'Your coin is live. ';
       var a = document.createElement('a'); a.href = '/coin?id=' + encodeURIComponent(r.id); a.textContent = 'View your coin'; m.appendChild(a);
       m.appendChild(document.createTextNode(' · ')); var t = document.createElement('a'); t.href = cfg.explorer + '/tx/' + r.sig + cfg.explorerSuffix; t.target = '_blank'; t.rel = 'noopener'; t.textContent = 'Transaction'; m.appendChild(t);
+      if (gm) { m.appendChild(document.createTextNode(' · ')); var g = document.createElement('a'); g.href = gm; g.target = '_blank'; g.rel = 'noopener'; g.textContent = 'Open in GMGN'; m.appendChild(g); }
     }).catch(function (e) {
+      try { if (gmgnTab && !gmgnTab.closed) gmgnTab.close(); } catch (err) { /* ignore */ }
       var code = e && (e.code || e.message);
       var shownBy = code;
       say(code === 'no_wallet' ? 'Install the Phantom wallet to continue.' : MSG[code] || (/reject|denied|cancel/i.test(String(e && e.message)) ? 'You cancelled in your wallet. Nothing was spent.' : 'Something went wrong. If your wallet shows a transaction, check it on the explorer.'), 'bad');
