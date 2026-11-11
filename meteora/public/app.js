@@ -104,6 +104,7 @@
       var g2 = el('div', 'grid'); g2.appendChild(cell('Creator wallet', c.creator ? link(exp('address', c.creator), short(c.creator)) : '–'));
       if (!c.simulated && c.mint) g2.appendChild(cell('Token', link(exp('address', c.mint), short(c.mint))));
       if (!c.simulated && c.pool) g2.appendChild(cell('Pool', link(exp('address', c.pool), short(c.pool))));
+      if (!c.simulated && c.mint && cfg.cluster === 'mainnet-beta') { g2.appendChild(cell('Chart', link('https://gmgn.ai/sol/token/' + c.mint, 'Open in GMGN'))); }
       w.appendChild(g2); root.appendChild(w);
       var q = panel('Payouts'); 
       if (c.simulated) q.appendChild(el('p', 'sub', 'No payouts yet.'));
