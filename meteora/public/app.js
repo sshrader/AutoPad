@@ -11,7 +11,7 @@
   function exp(kind, addr) { return cfg.explorer + '/' + kind + '/' + addr + cfg.explorerSuffix; }
   function badge(c) {
     var b = el('div', 'badge');
-    if (c.image) { var i = el('img'); i.src = c.image; i.alt = ''; b.appendChild(i); } else { b.style.background = c.color || '#d6b254'; b.textContent = (c.symbol || '?').slice(0, 2); }
+    if (c.image) { var i = el('img'); i.src = c.image; i.alt = ''; b.appendChild(i); } else { b.textContent = (c.symbol || '?').slice(0, 2); }
     return b;
   }
   function stat(c) { // one comparable set of numbers for a real or a demo coin
@@ -19,16 +19,17 @@
     var l = c.live; return l ? { progress: l.progress, collected: l.collectedSol, paid: null, mcap: l.quoteReserveSol } : null;
   }
   function tags(c, h) {
-    if (c.flagship) h.appendChild(el('span', 'tag gold', 'Flagship'));
-    if (c.simulated) h.appendChild(el('span', 'tag sim', 'Demo · simulated'));
-    else if (!c.launched) h.appendChild(el('span', 'tag', 'Not launched yet'));
-    else h.appendChild(el('span', 'tag', 'Live on ' + (cfg.cluster === 'mainnet-beta' ? 'mainnet' : 'devnet')));
+    if (c.flagship) h.appendChild(el('span', 'tag gold', 'FLAGSHIP'));
+    if (c.simulated) h.appendChild(el('span', 'tag sim', 'DEMO · SIMULATED'));
+    else if (!c.launched) h.appendChild(el('span', 'tag', 'NOT LAUNCHED'));
+    else h.appendChild(el('span', 'tag', 'LIVE · ' + (cfg.cluster === 'mainnet-beta' ? 'MAINNET' : 'DEVNET')));
   }
   function card(c) {
     var a = el('a', 'card' + (c.flagship ? ' flag' : '')); a.href = '/coin?id=' + encodeURIComponent(c.id);
     a.appendChild(badge(c));
     var mid = el('div'); var h = el('h3', '', c.name + ' '); h.appendChild(el('span', 'mono', '$' + c.symbol)); tags(c, h); mid.appendChild(h);
     mid.appendChild(el('div', 'sub', c.description)); a.appendChild(mid);
+    if (c.flagship && c.launched) a.appendChild(el('span', 'stamp', 'LIVE'));
     var s = stat(c), n = el('div', 'num');
     if (s) { n.appendChild(el('b', '', fmt(s.collected, 2) + ' SOL')); n.appendChild(document.createTextNode('fees collected')); } else n.appendChild(document.createTextNode(c.launched ? 'loading…' : 'soon'));
     a.appendChild(n);
@@ -37,7 +38,7 @@
   }
   function setNet() {
     var n = $('net'); if (!n) return;
-    n.textContent = cfg.cluster === 'mainnet-beta' ? 'Mainnet' : 'Devnet test'; n.className = 'net' + (cfg.cluster === 'mainnet-beta' ? '' : ' dev');
+    n.textContent = cfg.cluster === 'mainnet-beta' ? 'MAINNET' : 'DEVNET'; n.className = 'net' + (cfg.cluster === 'mainnet-beta' ? '' : ' dev');
   }
   function home() {
     get('/api/coins').then(function (coins) {
