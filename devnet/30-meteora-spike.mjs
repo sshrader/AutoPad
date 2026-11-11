@@ -99,12 +99,7 @@ if (step === 'methods') {
   const mint = Keypair.generate();
   const name = arg('name', 'Pay Cat'), symbol = arg('symbol', 'PAYCAT');
   const firstBuy = new BN(Math.round(Number(arg('buy', '0.1')) * LAMPORTS_PER_SOL));
-  let svc = client.pool, fn = 'createPoolWithFirstBuy';
-  if (typeof svc[fn] !== 'function') { // newer SDKs may keep it elsewhere or name it differently
-    const hit = Object.entries(client).flatMap(([n, o]) => (o && typeof o === 'object' ? methodsOf(o).filter(m => /FirstBuy/i.test(m) && !/Config/i.test(m)).map(m => [o, m, n]) : []))[0];
-    if (!hit) { console.error('No create-pool-with-first-buy method found. Run: node 30-meteora-spike.mjs methods'); process.exit(1); }
-    [svc, fn] = hit; console.log('Using ' + hit[2] + '.' + fn);
-  }
+  const svc = client.creator, fn = 'createPoolWithFirstBuy'; // in this SDK version it lives on the creator service
   const made = await svc[fn]({
     createPoolParam: { baseMint: mint.publicKey, config, name, symbol, uri: 'https://example.com/' + symbol.toLowerCase() + '.json', payer: keeper.publicKey, poolCreator: keeper.publicKey },
     firstBuyParam: { buyer: buyer.publicKey, buyAmount: firstBuy, minimumAmountOut: new BN(0), referralTokenAccount: null },
@@ -141,21 +136,23 @@ if (step === 'methods') {
   const before = await bal(creator.publicKey);
   console.log('Real creator wallet before: ' + before.toFixed(6) + ' SOL (keeper wallet is the on-chain creator; it signs, the creator wallet does not)');
   let ok = false;
-  try {
-    const tx = await client.creator.claimCreatorTradingFee({
-      creator: keeper.publicKey, payer: keeper.publicKey, pool, maxBaseAmount: new BN(0), maxQuoteAmount: BIG,
-      receiver: creator.publicKey,
-      tempWSolAcc: getAssociatedTokenAddressSync(NATIVE_MINT, keeper.publicKey),
-    });
-    await send(tx, [keeper], 'keeper claims creator fee -> real creator');
-    ok = true;
-  } catch (e) {
-    console.log('Claim with a separate receiver FAILED: ' + (e.message || e));
-    console.log('Trying again with the keeper itself as receiver...');
+  const base = { creator: keeper.publicKey, payer: keeper.publicKey, pool, maxBaseAmount: new BN(0), maxQuoteAmount: BIG };
+  const attempts = [
+    ['claimCreatorTradingFee with receiver', () => client.creator.claimCreatorTradingFee({ ...base, receiver: creator.publicKey, tempWSolAcc: getAssociatedTokenAddressSync(NATIVE_MINT, keeper.publicKey) })],
+    ['claimCreatorTradingFeeToReceiver', () => client.creator.claimCreatorTradingFeeToReceiver({ ...base, receiver: creator.publicKey })],
+  ];
+  for (const [label, build] of attempts) {
     try {
-      const tx = await client.creator.claimCreatorTradingFee({ creator: keeper.publicKey, payer: keeper.publicKey, pool, maxBaseAmount: new BN(0), maxQuoteAmount: BIG });
-      await send(tx, [keeper], 'keeper claims creator fee -> keeper');
-      console.log('That worked, so a separate receiver is the problem (tempWSolAcc?). Send me the error above.');
+      const tx = await build();
+      await send(tx, [keeper], 'keeper claims creator fee -> real creator (' + label + ')');
+      ok = true; break;
+    } catch (e) { console.log(label + ' FAILED: ' + (e.message || e)); }
+  }
+  if (!ok) {
+    try {
+      const tx = await client.creator.claimCreatorTradingFee(base);
+      await send(tx, [keeper], 'keeper claims creator fee -> keeper itself');
+      console.log('Claiming to the keeper itself worked, so only the separate receiver is the problem. Send me the errors above.');
     } catch (e2) { console.log('Also failed: ' + (e2.message || e2)); }
   }
   const after = await bal(creator.publicKey);
