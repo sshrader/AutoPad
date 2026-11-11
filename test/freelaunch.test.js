@@ -171,3 +171,22 @@ test('the per-visitor limit can be raised or removed for testing', async () => {
   assert.equal((await fl.launch({ code: made[0], name: 'a', symbol: 'A' }, { visitor: v })).status, 200);
   assert.equal((await fl.launch({ code: made[1], name: 'b', symbol: 'B' }, { visitor: v })).status, 200);
 });
+
+test('a daily cap and a minimum keeper balance protect a real-money network', async () => {
+  const admin = wallet();
+  let bal = 1, t = 1000000;
+  const io = { payer: key(), async signSend() { return 's'; }, async balanceSol() { return bal; } };
+  const launcher = { async prepare() { return { status: 200, body: { mint: 'M' + t, pool: 'M' + t, transaction: 't' } }; }, async step() { return { status: 200, body: { step: 'done' } }; } };
+  const fl = createFreeLaunch({ launcher, io, admins: [admin.address], now: () => t, logger: quiet, perVisitor: 0, dailyCap: 2, minBalanceSol: 0.05 });
+  const made = fl.issue({ wallet: admin.address, ts: t, count: 4, signature: admin.sign(messageFor(admin.address, t, 4)) }).body.codes;
+  assert.equal((await fl.launch({ code: made[0], name: 'a', symbol: 'A' }, {})).status, 200);
+  bal = 0.01;
+  assert.equal((await fl.launch({ code: made[1], name: 'b', symbol: 'B' }, {})).body.error, 'keeper_low');
+  assert.equal(fl.valid(made[1]), true, 'the code is not spent by a refusal');
+  bal = 1;
+  assert.equal((await fl.launch({ code: made[1], name: 'b', symbol: 'B' }, {})).status, 200);
+  assert.equal((await fl.launch({ code: made[2], name: 'c', symbol: 'C' }, {})).body.error, 'daily_cap');
+  assert.equal(fl.current().state, 'capped');
+  t += 86400000 + 1000;
+  assert.equal(fl.current().state, 'ready');
+});

@@ -25,6 +25,8 @@ function createFreeLaunch(opts) {
   const ttlMs = o.ttlMs || 7 * 86400000;
   const maxOpen = o.maxOpen || 10;
   const file = o.file || '';
+  const dailyCap = Number.isInteger(o.dailyCap) && o.dailyCap > 0 ? o.dailyCap : 0;       // free launches per 24 hours across the whole site; 0 = no cap
+  const minBalanceSol = Number.isFinite(o.minBalanceSol) && o.minBalanceSol > 0 ? o.minBalanceSol : 0; // refuse when the keeper holds less than this (real-money networks)
   const perVisitor = Number.isInteger(o.perVisitor) && o.perVisitor >= 0 ? o.perVisitor : 1;   // free launches one visitor may make; 0 = no limit
   const hashIp = ip => crypto.createHash('sha256').update('autopay-free:' + String(ip || '')).digest('hex').slice(0, 24);
 
@@ -65,6 +67,8 @@ function createFreeLaunch(opts) {
     const h = v.ip ? hashIp(v.ip) : '';
     return Object.keys(codes).filter(k => codes[k].usedAt && codes[k].by && ((h && codes[k].by.ip === h) || (v.cid && codes[k].by.cid === v.cid))).length;
   }
+  const usedToday = () => Object.keys(codes).filter(k => codes[k].usedAt && now() - codes[k].usedAt < 86400000).length;
+  const capped = () => dailyCap > 0 && usedToday() >= dailyCap;
   const blocked = v => perVisitor > 0 && usedBy(v) >= perVisitor;
 
   const valid = code => live(codes[norm(code)]) && !codes[norm(code)].busy;
@@ -75,6 +79,12 @@ function createFreeLaunch(opts) {
     const e = codes[key];
     if (!io || !live(e) || e.busy) return { status: 403, body: { error: 'bad_code' } };
     if (blocked(ctx && ctx.visitor)) return { status: 403, body: { error: 'already_used' } };
+    if (capped()) return { status: 429, body: { error: 'daily_cap' } };
+    if (minBalanceSol > 0 && typeof io.balanceSol === 'function') {
+      let bal = null;
+      try { bal = await io.balanceSol(); } catch (err) { bal = null; }
+      if (bal === null || bal < minBalanceSol) return { status: 503, body: { error: 'keeper_low' } };
+    }
     e.busy = true;
     let mint = '';
     try {
@@ -118,6 +128,7 @@ function createFreeLaunch(opts) {
   // The newest code is shown to every visitor: one person who uses it gets the free launch, then it reads as used.
   function current(visitor) {
     if (blocked(visitor)) return { state: 'claimed', left: 0 };
+    if (capped()) return { state: 'capped', left: 0 };
     const liveKeys = Object.keys(codes).filter(k => live(codes[k])).sort((a, b) => codes[a].at - codes[b].at);
     if (liveKeys.length) { const k = liveKeys.find(x => status(x) === 'ready') || liveKeys[0]; return { state: status(k), code: pretty(k), left: liveKeys.length, expiresAt: codes[k].at + ttlMs }; }
     let key = '';

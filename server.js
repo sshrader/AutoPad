@@ -1099,9 +1099,11 @@ if (require.main === module) {
   } else console.log('Auto-claim is off: set KEEPER_SECRET_KEY to turn it on.');
   // Free test launches: devnet only, and only with a keeper wallet to pay for them. Switch off with FREE_LAUNCH=no.
   let freeLaunch = null;
-  if (keeperIo && cluster === 'devnet' && launcher.info().enabled && env('FREE_LAUNCH') !== 'no') {
-    freeLaunch = createFreeLaunch({ perVisitor: env('FREE_PER_VISITOR') === '' ? undefined : Number(env('FREE_PER_VISITOR')), launcher, io: keeperIo, admins: [env('PLATFORM_FEE_WALLET') || pad.fees.wallet, founderWallet], file: dataDir ? path.join(dataDir, 'freecodes.json') : '' });
-    console.log('Free test launches on: codes are made on the admin page.');
+  // On mainnet each free launch costs real SOL from the keeper, so it stays off unless FREE_LAUNCH_MAINNET=yes, and then it has a daily cap.
+  const freeMain = cluster !== 'devnet';
+  if (keeperIo && (!freeMain || env('FREE_LAUNCH_MAINNET') === 'yes') && launcher.info().enabled && env('FREE_LAUNCH') !== 'no') {
+    freeLaunch = createFreeLaunch({ dailyCap: freeMain ? (Number(env('FREE_DAILY_CAP')) || 5) : (Number(env('FREE_DAILY_CAP')) || 0), minBalanceSol: freeMain ? 0.05 : 0, perVisitor: env('FREE_PER_VISITOR') === '' ? undefined : Number(env('FREE_PER_VISITOR')), launcher, io: keeperIo, admins: [env('PLATFORM_FEE_WALLET') || pad.fees.wallet, founderWallet], file: dataDir ? path.join(dataDir, 'freecodes.json') : '' });
+    console.log('Free launches on' + (freeMain ? ' (MAINNET, real SOL from the keeper, at most ' + (Number(env('FREE_DAILY_CAP')) || 5) + ' a day)' : '') + ': codes are made on the main page.');
   }
   const server = createApp({ art, launcher, launches, founder, pad, padStore, unique, keeper, airdrops, freeLaunch, boost, homePad: HOME_SLUG, padAiDailyCap: Number(env("PAD_AI_DAILY_CAP")) || undefined, padChatDailyCap: Number(env("PAD_CHAT_DAILY_CAP")) || undefined, verifier: createVerifier({ secret: verifySecret || undefined }) });
   server.listen(PORT, '0.0.0.0', () => {
