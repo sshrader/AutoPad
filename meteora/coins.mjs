@@ -21,10 +21,13 @@ export function flagshipFromEnv(e = env) {
 
 export function loadCoins(e = env, store = null) {
   const demo = JSON.parse(fs.readFileSync(path.join(HERE, 'demo-coins.json'), 'utf8')).map(c => ({ ...c, simulated: true, flagship: false }));
-  const flagship = flagshipFromEnv(e);
+  let flagship = flagshipFromEnv(e);
   // The flagship is always first. Before it is launched it shows as "not launched yet" instead of pretending.
-  const hidden = new Set(e('HIDE_COINS').split(',').map(x => x.trim()).filter(Boolean));
-  let made = store ? store.list().filter(x => !hidden.has(x.id)).map(x => ({ ...x, simulated: false, flagship: false })) : [];
+  // HIDE_COINS (or HIDE_POOLS) takes coin ids, mint addresses (the CA) or pool addresses, comma separated.
+  const hidden = new Set((e('HIDE_COINS') + ',' + e('HIDE_POOLS')).split(',').map(x => x.trim()).filter(Boolean));
+  const isHidden = x => hidden.has(x.id) || (x.mint && hidden.has(x.mint)) || (x.pool && hidden.has(x.pool));
+  if (isHidden(flagship)) flagship = { ...flagship, mint: '', pool: '' }; // an old flagship set by FLAGSHIP_MINT/POOL goes back to "not launched"
+  let made = store ? store.list().filter(x => !isHidden(x)).map(x => ({ ...x, simulated: false, flagship: false })) : [];
   // The flagship is the pool set in FLAGSHIP_POOL (launched by script), or else the first coin launched through the site by
   // the FLAGSHIP_CREATOR wallet. Until one exists it shows as "not launched".
   let top = flagship;

@@ -24,7 +24,7 @@ A separate, small site that shows AutoPayment working on Meteora's Dynamic Bondi
 | `TRADE` | `no` hides the buy and sell box (on by default when `RPC_URL` is set) |
 | `DATA_DIR` | where launched coins and their pictures are kept. On Railway, attach a volume and point this at it |
 | `LAUNCH_MAX_BUY` | most SOL a first buy may be (default 2) |
-| `HIDE_COINS` | comma-separated coin ids to stop showing |
+| `HIDE_COINS` (or `HIDE_POOLS`) | comma-separated coin ids, mint addresses or pool addresses to stop showing. Hidden coins are also skipped by the fee claimer, so claim their fees first |
 | `AUTOCLAIM`, `AUTOCLAIM_EVERY_MIN`, `AUTOCLAIM_MIN_SOL` | `dry` or `yes` runs the fee claimer inside the site (needs `KEEPER_SECRET_KEY`) |
 | `KEEPER_KEYPAIR` | scripts only: path to the keeper wallet file kept outside the repo |
 | `KEEPER_SECRET_KEY` | only if the site runs the claimer: the keeper wallet file's contents |

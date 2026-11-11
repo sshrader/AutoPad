@@ -168,3 +168,16 @@ test('checkLaunch handles website, X and Telegram links', () => {
   assert.equal(checkLaunch({ ...good, twitter: 'https://evil.com/x' }).error, 'bad_link');
   assert.equal(checkLaunch({ ...good, website: 'a b.com' }).error, 'bad_link');
 });
+
+test('HIDE_COINS hides a coin by id, mint or pool, and an old flagship goes back to not launched', async () => {
+  const { loadCoins } = await import('../coins.mjs');
+  const mk = (id, mint, pool, creator) => ({ id, name: id, symbol: 'X', creator, mint, pool, status: 'live', createdAt: 1 });
+  const store = { list: () => [mk('old-1', W, CFG, W), mk('new-1', CFG, W, 'someone')] };
+  const e = vars => (n, d = '') => String(vars[n] ?? d);
+  assert.deepEqual(loadCoins(e({ FLAGSHIP_CREATOR: W }), store).slice(0, 2).map(c => c.id), ['old-1', 'new-1']);
+  assert.equal(loadCoins(e({ FLAGSHIP_CREATOR: W, HIDE_POOLS: CFG }), store).some(c => c.id === 'old-1'), false);
+  assert.equal(loadCoins(e({ FLAGSHIP_CREATOR: W, HIDE_COINS: 'old-1' }), store).some(c => c.id === 'old-1'), false);
+  assert.equal(loadCoins(e({ HIDE_COINS: W }), store).some(c => c.id === 'new-1'), false);
+  const env = loadCoins(e({ FLAGSHIP_MINT: W, FLAGSHIP_POOL: CFG, HIDE_POOLS: W }), { list: () => [] })[0];
+  assert.equal(env.pool, ''); assert.equal(env.flagship, true);
+});
