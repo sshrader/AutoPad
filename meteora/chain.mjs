@@ -150,13 +150,23 @@ export async function createChain({ connection, keeper }) {
         if (amountIn.isZero()) { const e = new Error('nothing_to_sell'); e.code = 'nothing_to_sell'; throw e; }
       }
       let minOut;
-      try {
-        const config = await client.state.getPoolConfig(p.config);
-        const point = Number(config.activationType) === 1 ? new BN(Math.floor(Date.now() / 1000)) : new BN(await connection.getSlot());
-        const q = client.pool.swapQuote({ virtualPool: p, config, swapBaseForQuote: side === 'sell', amountIn, slippageBps: 1500, hasReferral: false, eligibleForFirstSwapWithMinFee: false, currentPoint: point });
-        minOut = q.minimumAmountOut;
-        if (!minOut) throw new Error('no quote');
-      } catch { const e = new Error('quote_failed'); e.code = 'quote_failed'; throw e; }
+      const config0 = await client.state.getPoolConfig(p.config);
+      const config = config0 && config0.config ? config0.config : config0; // unwrap if a newer SDK wraps it
+      const point = Number(config.activationType) === 1 ? new BN(Math.floor(Date.now() / 1000)) : new BN(await connection.getSlot());
+      const base = { virtualPool: p, config, swapBaseForQuote: side === 'sell', hasReferral: false, currentPoint: point, slippageBps: 1500 };
+      const tries = [
+        ['swapQuote', () => client.pool.swapQuote({ ...base, amountIn, eligibleForFirstSwapWithMinFee: false })],
+        ['swapQuote2', () => client.pool.swapQuote2({ ...base, swapMode: pick('SwapMode', 'ExactIn', 0), amountIn })],
+      ];
+      for (const [label, run] of tries) {
+        try {
+          const q = await run(); // some SDK versions return a promise, some a value
+          const m = q && (q.minimumAmountOut || q.minimumOutputAmount || q.outputAmount);
+          if (m) { minOut = m; break; }
+          console.error('prepareSwap: ' + label + ' gave no minimum; got keys: ' + Object.keys(q || {}).join(', '));
+        } catch (err) { console.error('prepareSwap: ' + label + ' failed: ' + String((err && err.message) || err).slice(0, 200)); }
+      }
+      if (!minOut) { const e = new Error('quote_failed'); e.code = 'quote_failed'; throw e; }
       const tx = await client.pool.swap({ owner, amountIn, minimumAmountOut: minOut, swapBaseForQuote: side === 'sell', pool: poolPk, poolAddress: poolPk, referralTokenAccount: null });
       tx.feePayer = owner;
       tx.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
