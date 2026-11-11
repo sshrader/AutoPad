@@ -14,6 +14,8 @@ export async function createChain({ connection, keeper }) {
   const pick = (name, key, fallback) => (sdk[name] && sdk[name][key] !== undefined ? sdk[name][key] : fallback);
   const pk = x => (x instanceof PublicKey ? x : new PublicKey(x));
   const num = x => (x && x.toString ? Number(x.toString()) : Number(x || 0));
+  // Newer SDKs return the pool wrapped as { poolState }; older ones return the pool itself. null = no such pool (yet).
+  const getPoolState = async poolAddress => { const r = await client.state.getPool(pk(poolAddress)); return r ? (r.poolState || r) : null; };
 
   async function send(tx, signers) {
     tx.feePayer = signers[0].publicKey;
@@ -120,7 +122,8 @@ export async function createChain({ connection, keeper }) {
     // Did this launch really happen, and is the keeper the pool's creator? Used before a coin is listed.
     async confirmLaunch({ pool, mint }) {
       try {
-        const p = await client.state.getPool(pk(pool));
+        const p = await getPoolState(pool);
+        if (!p) { console.error('confirmLaunch: pool ' + pool + ' not on chain yet'); return false; }
         const str = x => (x && x.toBase58 ? x.toBase58() : x ? String(x) : '');
         const baseMint = str(p.baseMint || p.tokenMint), creator = str(p.creator || p.poolCreator);
         if (!baseMint || !creator) { console.error('confirmLaunch: unexpected pool fields: ' + Object.keys(p).join(', ')); return false; }
@@ -134,7 +137,8 @@ export async function createChain({ connection, keeper }) {
     // 15% slippage; if no quote can be made the trade is refused instead of sent with no protection.
     async prepareSwap({ pool, wallet, side, amount }) {
       const owner = pk(wallet), poolPk = pk(pool);
-      const p = await client.state.getPool(poolPk);
+      const p = await getPoolState(poolPk);
+      if (!p) { const e = new Error('unknown_coin'); e.code = 'unknown_coin'; throw e; }
       if (p.isMigrated) { const e = new Error('migrated'); e.code = 'migrated'; throw e; }
       let amountIn;
       if (side === 'buy') amountIn = new BN(toLamports(amount));
@@ -162,7 +166,8 @@ export async function createChain({ connection, keeper }) {
     // Live numbers for the coin page.
     async poolInfo(poolAddress) {
       const pool = pk(poolAddress);
-      const p = await client.state.getPool(pool);
+      const p = await getPoolState(pool);
+      if (!p) throw new Error('pool not found');
       let progress = null;
       try { progress = Math.round(Number(await client.state.getPoolQuoteTokenCurveProgress(pool)) * 1000) / 10; } catch { /* optional */ } // 0-1 from the SDK, shown as a percent
       return { quoteReserveSol: num(p.quoteReserve) / 1e9, isMigrated: Boolean(p.isMigrated), progress };
