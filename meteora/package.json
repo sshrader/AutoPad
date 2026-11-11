@@ -1,0 +1,21 @@
+{
+  "name": "autopay-meteora",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AutoPay on Meteora: a small test site (flagship coin + demo coins) and the fee claimer. Separate from the main AutoPay site.",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "config": "node scripts/01-config.mjs",
+    "flagship": "node scripts/02-launch-flagship.mjs",
+    "claim": "node scripts/04-claim.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@meteora-ag/dynamic-bonding-curve-sdk": "latest",
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.98.0",
+    "bn.js": "^5.2.1"
+  }
+}
