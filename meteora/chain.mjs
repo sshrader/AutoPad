@@ -121,8 +121,11 @@ export async function createChain({ connection, keeper }) {
     async confirmLaunch({ pool, mint }) {
       try {
         const p = await client.state.getPool(pk(pool));
-        const ok = p.baseMint.toBase58() === mint && p.creator.toBase58() === keeper.publicKey.toBase58();
-        if (!ok) console.error('confirmLaunch: pool ' + pool + ' found but baseMint=' + p.baseMint.toBase58() + ' (want ' + mint + '), creator=' + p.creator.toBase58() + ' (want ' + keeper.publicKey.toBase58() + ')');
+        const str = x => (x && x.toBase58 ? x.toBase58() : x ? String(x) : '');
+        const baseMint = str(p.baseMint || p.tokenMint), creator = str(p.creator || p.poolCreator);
+        if (!baseMint || !creator) { console.error('confirmLaunch: unexpected pool fields: ' + Object.keys(p).join(', ')); return false; }
+        const ok = baseMint === mint && creator === keeper.publicKey.toBase58();
+        if (!ok) console.error('confirmLaunch: pool ' + pool + ' has baseMint=' + baseMint + ' (want ' + mint + '), creator=' + creator + ' (want ' + keeper.publicKey.toBase58() + ')');
         return ok;
       } catch (err) { console.error('confirmLaunch: pool ' + pool + ' not readable yet: ' + String((err && err.message) || err).slice(0, 160)); return false; }
     },
